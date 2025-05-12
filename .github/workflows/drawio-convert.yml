@@ -82,90 +82,101 @@ jobs:
           echo "Before SHA: ${{ github.event.before }}"
           echo "After SHA: ${{ github.event.after }}" # Same as github.sha for push
 
-          # For push events, github.event.before is the commit before the push
-          # and github.event.after (or github.sha) is the latest commit in the push.
-          # If it's a new branch, github.event.before will be all zeros.
-          if [[ "${{ github.event_name }}" == "push" && "${{ github.event.before }}" != "0000000000000000000000000000000000000000" ]]; then
-            echo "Push event to existing branch. Scanning for .drawio files added between ${{ github.event.before }} and ${{ github.sha }}."
-            echo "Running command: git diff --name-only --diff-filter=A ${{ github.event.before }} ${{ github.sha }} -- 'drawio_files/**/*.drawio'"
-            
-            TEMP_DIFF_OUTPUT_FILE=$(mktemp)
-            # Robust check for mktemp success
-            if [ -z "$TEMP_DIFF_OUTPUT_FILE" ] || [ ! -f "$TEMP_DIFF_OUTPUT_FILE" ]; then
-              echo "::error::Failed to create temporary file with mktemp. Path was: '$TEMP_DIFF_OUTPUT_FILE'"
-              exit 1
-            fi
-            echo "Temporary file created: ${TEMP_DIFF_OUTPUT_FILE}"
-            
-            # Ensure git diff command errors are captured if any
-            if ! git diff --name-only --diff-filter=A ${{ github.event.before }} ${{ github.sha }} -- 'drawio_files/**/*.drawio' > "${TEMP_DIFF_OUTPUT_FILE}"; then
-              echo "Warning: git diff command exited with non-zero status. Output (if any) was:"
+          # Refactored conditional logic
+          if [[ "${{ github.event_name }}" == "push" ]]; then
+            echo "Event is PUSH."
+            if [[ "${{ github.event.before }}" != "0000000000000000000000000000000000000000" ]]; then
+              # Push to an existing branch
+              echo "Push event to existing branch. Scanning for .drawio files added between ${{ github.event.before }} and ${{ github.sha }}."
+              echo "Running command: git diff --name-only --diff-filter=A ${{ github.event.before }} ${{ github.sha }} -- 'drawio_files/**/*.drawio'"
+              
+              TEMP_DIFF_OUTPUT_FILE=$(mktemp)
+              if [ -z "$TEMP_DIFF_OUTPUT_FILE" ] || [ ! -f "$TEMP_DIFF_OUTPUT_FILE" ]; then
+                echo "::error::Failed to create temporary file with mktemp. Path was: '$TEMP_DIFF_OUTPUT_FILE'"
+                exit 1
+              fi
+              echo "Temporary file created: ${TEMP_DIFF_OUTPUT_FILE}"
+              
+              if ! git diff --name-only --diff-filter=A ${{ github.event.before }} ${{ github.sha }} -- 'drawio_files/**/*.drawio' > "${TEMP_DIFF_OUTPUT_FILE}"; then
+                echo "Warning: git diff command exited with non-zero status. Output (if any) was:"
+                cat "${TEMP_DIFF_OUTPUT_FILE}"
+              fi
+              
+              echo "--- Start of git diff output (from ${TEMP_DIFF_OUTPUT_FILE}) ---"
               cat "${TEMP_DIFF_OUTPUT_FILE}"
-              # It's possible the command failed but still wrote to the file, or the file is empty.
-              # We'll proceed and let the file content check handle it.
-            fi
-            
-            echo "--- Start of git diff output (from ${TEMP_DIFF_OUTPUT_FILE}) ---"
-            cat "${TEMP_DIFF_OUTPUT_FILE}"
-            echo "--- End of git diff output (from ${TEMP_DIFF_OUTPUT_FILE}) ---"
-            echo "Details of temporary file ${TEMP_DIFF_OUTPUT_FILE}:"
-            ls -l "${TEMP_DIFF_OUTPUT_FILE}"
+              echo "--- End of git diff output (from ${TEMP_DIFF_OUTPUT_FILE}) ---"
+              echo "Details of temporary file ${TEMP_DIFF_OUTPUT_FILE}:"
+              ls -l "${TEMP_DIFF_OUTPUT_FILE}"
 
-            if [ ! -s "${TEMP_DIFF_OUTPUT_FILE}" ]; then # Check if file has size greater than zero
-                echo "Temporary file ${TEMP_DIFF_OUTPUT_FILE} is empty or does not exist. No files to process from diff."
+              if [ ! -s "${TEMP_DIFF_OUTPUT_FILE}" ]; then
+                  echo "Temporary file ${TEMP_DIFF_OUTPUT_FILE} is empty or does not exist. No files to process from diff."
+              else
+                  echo "Temporary file ${TEMP_DIFF_OUTPUT_FILE} is NOT empty. Processing contents."
+                  LOOP_ITERATIONS=0
+                  while IFS= read -r file; do 
+                      LOOP_ITERATIONS=$((LOOP_ITERATIONS + 1))
+                      echo "Loop iteration: $LOOP_ITERATIONS. Raw line read: <<<${file}>>>"
+                      if [[ -z "$file" ]]; then 
+                          echo "Line read from temp file was empty. Skipping."
+                          continue
+                      fi
+                      echo "Processing file from diff: '$file'"
+                      if [[ "$file" == drawio_files/* && "$file" == *.drawio ]]; then
+                          echo "File '$file' matches criteria, adding to FILES_TO_PROCESS."
+                          FILES_TO_PROCESS+=("$file")
+                      else
+                          echo "File '$file' from git diff output does NOT match 'drawio_files/*' and '*.drawio'."
+                      fi
+                  done < "${TEMP_DIFF_OUTPUT_FILE}"
+                  echo "Finished loop over diff output. Total iterations: $LOOP_ITERATIONS."
+              fi
+              rm -f "${TEMP_DIFF_OUTPUT_FILE}"
             else
-                echo "Temporary file ${TEMP_DIFF_OUTPUT_FILE} is NOT empty. Processing contents."
-                LOOP_ITERATIONS=0
-                while IFS= read -r file; do 
-                    LOOP_ITERATIONS=$((LOOP_ITERATIONS + 1))
-                    echo "Loop iteration: $LOOP_ITERATIONS. Raw line read: <<<${file}>>>"
-                    
-                    if [[ -z "$file" ]]; then 
-                        echo "Line read from temp file was empty. Skipping."
-                        continue
-                    fi
-
-                    echo "Processing file from diff: '$file'" # This echo is just before the potentially problematic line
-                    if [[ "$file" == drawio_files/* ]] && [[ "$file" == *.drawio ]]; then
-                        echo "File '$file' matches criteria, adding to FILES_TO_PROCESS."
-                        FILES_TO_PROCESS+=("$file")
-                    else
-                        echo "File '$file' from git diff output does NOT match 'drawio_files/*' and '*.drawio'."
-                    fi
-                done < "${TEMP_DIFF_OUTPUT_FILE}"
-                echo "Finished loop over diff output. Total iterations: $LOOP_ITERATIONS."
+              # Push to a new branch or initial commit (for a PUSH event)
+              echo "Push event for a new branch or initial commit. Scanning all .drawio files in commit ${{ github.sha }} using git diff-tree."
+              echo "Scanning with git diff-tree for commit ${{ github.sha }}..."
+              TREE_LOOP_ITERATIONS=0
+              while IFS= read -r file || [ -n "$file" ]; do
+                TREE_LOOP_ITERATIONS=$((TREE_LOOP_ITERATIONS + 1))
+                echo "Tree Loop (new branch push): $TREE_LOOP_ITERATIONS. Raw line read: <<<${file}>>>"
+                if [[ -z "$file" ]]; then
+                  echo "Skipping empty line from git diff-tree (new branch push)."
+                  continue
+                fi
+                if [[ "$file" == drawio_files/* && "$file" == *.drawio ]]; then
+                  echo "File '$file' (from tree, new branch push) matches criteria, adding to FILES_TO_PROCESS."
+                  FILES_TO_PROCESS+=("$file")
+                else
+                  echo "File '$file' (from tree, new branch push) does NOT match criteria."
+                fi
+              done < <(git diff-tree --no-commit-id --name-only -r ${{ github.sha }} -- 'drawio_files/**/*.drawio')
+              echo "Finished tree loop (new branch push). Total iterations: $TREE_LOOP_ITERATIONS."
             fi
-            rm -f "${TEMP_DIFF_OUTPUT_FILE}"
           else
-            # This handles initial commit to a repo, new branch push, or manual workflow_dispatch.
+            # Not a push event (e.g., workflow_dispatch)
+            echo "Event is NOT PUSH (${{ github.event_name }}). Scanning all .drawio files in commit ${{ github.sha }} using git diff-tree."
             if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
               echo "Workflow dispatch event. Scanning all .drawio files in commit ${{ github.sha }}."
-            elif [[ "${{ github.event.before }}" == "0000000000000000000000000000000000000000" ]]; then
-              # This handles initial commit to a repo or a new branch push
-              echo "New branch push or initial commit. Scanning all .drawio files in commit ${{ github.sha }}."
             else
-              echo "Unknown scenario or unable to determine diff range. Scanning all .drawio files in commit ${{ github.sha }} as a fallback."
+              echo "Unknown non-push event type (${{ github.event_name }}). Scanning all .drawio files in commit ${{ github.sha }} as a fallback."
             fi
-            # List all files in the current commit's tree and filter for .drawio files in drawio_files/
-            # These are considered "new" for ID assignment if they don't have an ID.
-            # The existing ID check `if ! [[ "$original_basename" =~ \\ \\([0-9]{3}\\)$ ]]; then` will prevent re-renaming.
-            echo "Scanning with git diff-tree..."
+            echo "Scanning with git diff-tree for commit ${{ github.sha }}..."
             TREE_LOOP_ITERATIONS=0
-            while IFS= read -r file || [ -n "$file" ]; do # Added || [ -n "$file" ] for robustness
+            while IFS= read -r file || [ -n "$file" ]; do
               TREE_LOOP_ITERATIONS=$((TREE_LOOP_ITERATIONS + 1))
-              echo "Tree Loop iteration: $TREE_LOOP_ITERATIONS. Raw line read: <<<${file}>>>"
+              echo "Tree Loop (non-push): $TREE_LOOP_ITERATIONS. Raw line read: <<<${file}>>>"
               if [[ -z "$file" ]]; then
-                echo "Skipping empty line from git diff-tree."
+                echo "Skipping empty line from git diff-tree (non-push)."
                 continue
               fi
-              if [[ "$file" == drawio_files/* ]] && [[ "$file" == *.drawio ]]; then
-                echo "File '$file' (from tree) matches criteria, adding to FILES_TO_PROCESS."
+              if [[ "$file" == drawio_files/* && "$file" == *.drawio ]]; then
+                echo "File '$file' (from tree, non-push) matches criteria, adding to FILES_TO_PROCESS."
                 FILES_TO_PROCESS+=("$file")
               else
-                echo "File '$file' (from tree) does NOT match criteria."
+                echo "File '$file' (from tree, non-push) does NOT match criteria."
               fi
             done < <(git diff-tree --no-commit-id --name-only -r ${{ github.sha }} -- 'drawio_files/**/*.drawio')
-            echo "Finished tree loop. Total iterations: $TREE_LOOP_ITERATIONS."
+            echo "Finished tree loop (non-push). Total iterations: $TREE_LOOP_ITERATIONS."
           fi
 
           if [ ${#FILES_TO_PROCESS[@]} -eq 0 ]; then
