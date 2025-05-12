@@ -1,0 +1,321 @@
+﻿2025-05-12T14:18:56.2497599Z ##[group]Run actions/github-script@v6
+2025-05-12T14:18:56.2497887Z with:
+2025-05-12T14:18:56.2524193Z   script: const fs = require('fs');
+const path = require('path');
+
+try {
+  const https = require('https');
+  console.log('Preparing to upload changelog to SharePoint...');
+  
+  // Read and format the changelog file for SharePoint
+  const changelogPath = path.join(process.env.GITHUB_WORKSPACE, 'html_files', 'CHANGELOG.csv');
+  console.log(`Reading changelog from: ${changelogPath}`);
+  const rawContent = fs.readFileSync(changelogPath, 'utf8');
+  
+  // Format the changelog with proper headers and content
+  // First, parse the existing CSV
+  const lines = rawContent.split('\n').filter(line => line.trim());
+  const header = lines[0]; // Get header row
+  const dataRows = lines.slice(1); // Get data rows
+  
+  // Create a properly formatted CSV with all the needed columns in the requested order
+  // Date, Time, Diagram, Action, File, Commit Message, Version, Commit Hash
+  let fileContent = 'Date,Time,Diagram,Action,File,Commit Message,Version,Commit Hash\n';
+  
+  // Add the data rows with today's upload date
+  const today = new Date().toLocaleDateString('en-GB', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric'
+  }); // Format as DD.MM.YYYY
+  
+  // Process each row to handle the changed column ordering
+  dataRows.forEach(row => {
+    if (row.trim()) {
+      // Using a more robust CSV parsing approach
+      try {
+        // First, parse the CSV properly using a regex that handles quoted fields with commas
+        const parseCSV = (text) => {
+          const result = [];
+          const regex = /("[^"]*"|[^,"\r\n]+)(?=,|\r\n|$)|^(?=,|$)|,(?=,|$)/g;
+          let m;
+          
+          while ((m = regex.exec(text)) !== null) {
+            // Remove quotes if the field is quoted
+            let field = m[1] || '';
+            if (field.startsWith('"') && field.endsWith('"')) {
+              field = field.substring(1, field.length - 1);
+            }
+            result.push(field);
+          }
+          
+          return result;
+        };
+        
+        const extractedCols = parseCSV(row);
+        
+        // Ensure we have enough columns and handle missing values
+        while (extractedCols.length < 9) {
+          extractedCols.push('');
+        }
+        
+        // For reference, original columns are:
+        // [0]Date, [1]Time, [2]User, [3]Diagram, [4]Action, [5]File, [6]Commit Message, [7]Version, [8]Commit Hash
+        
+        // Keeping same format, just removing the SharePoint Upload Date:
+        // [0]Date, [1]Time, [2]Diagram, [3]Action, [4]File, [5]Commit Message, [6]Version, [7]Commit Hash
+        
+        // Create a properly formatted CSV row with quotes around each field
+        const formattedRow = [
+          extractedCols[0],                      // Date
+          extractedCols[1],                      // Time
+          `"${(extractedCols[3] || '').replace(/"/g, '""')}"`,  // Diagram
+          `"${(extractedCols[4] || '').replace(/"/g, '""')}"`,  // Action
+          `"${(extractedCols[5] || '').replace(/"/g, '""')}"`,  // File
+          `"${(extractedCols[6] || '').replace(/"/g, '""')}"`,  // Commit Message
+          extractedCols[7] || '',                // Version
+          extractedCols[8] || ''                 // Commit Hash
+        ].join(',');
+        
+        fileContent += formattedRow + '\n';
+      } catch (error) {
+        console.error(`Error processing CSV row: ${row}`, error);
+        // Skip this row if there's an error
+      }
+    }
+  });
+  
+  console.log(`Formatted changelog with ${dataRows.length} entries`);
+  
+  // Function to make HTTP requests with promises
+  const httpRequest = (options, postData) => {
+    return new Promise((resolve, reject) => {
+      const req = https.request(options, (res) => {
+        let data = '';
+        res.on('data', (chunk) => { data += chunk; });
+        res.on('end', () => {
+          if (res.statusCode >= 200 && res.statusCode < 300) {
+            try {
+              resolve(data.length > 0 ? JSON.parse(data) : {});
+            } catch (e) {
+              resolve(data); // Not JSON, return as string
+            }
+          } else {
+            reject(new Error(`HTTP Error: ${res.statusCode} ${data}`));
+          }
+        });
+      });
+      
+      req.on('error', reject);
+      
+      if (postData) {
+        req.write(postData);
+      }
+      req.end();
+    });
+  };
+  
+  // Step 1: Get access token with proper SharePoint permissions
+  console.log('Getting access token...');
+  const tokenBody = new URLSearchParams({
+    client_id: process.env.CLIENT_ID,
+    scope: 'https://graph.microsoft.com/.default',
+    client_secret: process.env.CLIENT_SECRET,
+    grant_type: 'client_credentials'
+  }).toString();
+  
+  const tokenOptions = {
+    method: 'POST',
+    hostname: 'login.microsoftonline.com',
+    path: `/${process.env.TENANT_ID}/oauth2/v2.0/token`,
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'Content-Length': Buffer.byteLength(tokenBody)
+    }
+  };
+  
+  // Get token
+  const tokenData = await httpRequest(tokenOptions, tokenBody);
+  console.log('Access token obtained');
+  
+  // Step 2: Get drives if needed
+  // Force drive ID detection regardless of configured value due to previous errors
+  console.log('Attempting to detect SharePoint drives ***matically...');
+  
+  // Verify the site ID from secrets
+  try {
+    console.log(`Verifying site ID from secret: ${process.env.SITE_ID}`);
+    
+    const siteOptions = {
+      method: 'GET',
+      hostname: 'graph.microsoft.com',
+      path: `/v1.0/sites/${process.env.SITE_ID}`,
+      headers: {
+        'Authorization': `***
+        'Accept': 'application/json'
+      }
+    };
+    
+    const siteData = await httpRequest(siteOptions);
+    console.log(`Site found: ${siteData.displayName || siteData.name}`);
+  } catch (siteError) {
+    console.error('Error verifying site:', siteError.message);
+    console.log('Trying alternative site path format...');
+    // If the site ID doesn't work, try a different format
+    const originalSiteId = process.env.SITE_ID;
+    try {
+      // Try sites/SiteName format
+      if (!originalSiteId.startsWith('sites/')) {
+        process.env.SITE_ID = `sites/${originalSiteId.split('/').pop()}`;
+      } else {
+        // Or try domain,sites,SiteName format
+        process.env.SITE_ID = `frostaag.sharepoint.com,${originalSiteId.replace('/', ',')}`;
+      }
+      console.log(`Using alternative site ID format: ${process.env.SITE_ID}`);
+    } catch (formatError) {
+      console.error('Error reformatting site ID:', formatError);
+      // Keep the original if parsing fails
+    }
+  }
+  
+  // Now get the list of drives
+  const drivesOptions = {
+    method: 'GET',
+    hostname: 'graph.microsoft.com',
+    path: `/v1.0/sites/${process.env.SITE_ID}/drives`,
+    headers: {
+      'Authorization': `***
+      'Accept': 'application/json'
+    }
+  };
+  
+  console.log(`Requesting drives list from: ${drivesOptions.path}`);
+  const drivesData = await httpRequest(drivesOptions);
+  
+  if (!drivesData.value || drivesData.value.length === 0) {
+    throw new Error(`No drives found for site: ${process.env.SITE_ID}`);
+  }
+  
+  console.log('Available drives:');
+  drivesData.value.forEach(d => console.log(`- ${d.name}: ${d.id}`));
+  
+  // Try to find the Documents drive - prioritize "Shared Documents" 
+  console.log('Looking for document library named "Shared Documents"');
+  const documentsDrive = drivesData.value.find(d => 
+    d.name === 'Shared Documents' || 
+    d.name === 'Documents' || 
+    d.name.includes('Document')
+  );
+  
+  let driveId;
+  if (documentsDrive) {
+    driveId = documentsDrive.id;
+    console.log(`Selected document library: ${documentsDrive.name} (${driveId})`);
+  } else {
+    // Fall back to first drive
+    driveId = drivesData.value[0].id;
+    console.log(`No document library found, using first available drive: ${drivesData.value[0].name} (${driveId})`);
+  }
+  
+  // Step 3: Upload the file - use consistent filename instead of date-stamped
+  const fileName = 'Diagrams_Changelog.csv';  // Fixed filename that will be overwritten each time
+  const folderPath = 'Diagrams';  // Target folder in SharePoint DatasphereFileStorage site
+  console.log(`Uploading changelog as ${fileName} to folder "${folderPath}" in drive ${driveId}...`);
+  
+  // Create the folder if it doesn't exist
+  try {
+    const folderCheckOptions = {
+      method: 'GET',
+      hostname: 'graph.microsoft.com',
+      path: `/v1.0/sites/${process.env.SITE_ID}/drives/${driveId}/root:/${folderPath}`,
+      headers: {
+        'Authorization': `***
+        'Accept': 'application/json'
+      }
+    };
+    
+    // Check if folder exists
+    try {
+      await httpRequest(folderCheckOptions);
+      console.log(`Folder "${folderPath}" already exists`);
+    } catch (folderError) {
+      if (folderError.message.includes('404')) {
+        // Folder doesn't exist, create it
+        console.log(`Creating folder "${folderPath}"...`);
+        const createFolderOptions = {
+          method: 'PATCH',
+          hostname: 'graph.microsoft.com',
+          path: `/v1.0/sites/${process.env.SITE_ID}/drives/${driveId}/root/children`,
+          headers: {
+            'Authorization': `***
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          }
+        };
+        
+        await httpRequest(createFolderOptions, JSON.stringify({
+          name: folderPath,
+          folder: {},
+          '@microsoft.graph.conflictBehavior': 'rename'
+        }));
+        console.log(`Folder "${folderPath}" created successfully`);
+      } else {
+        throw folderError;
+      }
+    }
+  } catch (folderCreateError) {
+    console.error(`Error managing folder "${folderPath}":`, folderCreateError.message);
+    console.log('Will attempt to upload to the folder anyway...');
+  }
+  
+  // Upload file to the specified folder
+  const uploadOptions = {
+    method: 'PUT',
+    hostname: 'graph.microsoft.com',
+    path: `/v1.0/sites/${process.env.SITE_ID}/drives/${driveId}/root:/${folderPath}/${fileName}:/content`,
+    headers: {
+      'Authorization': `***
+      'Content-Type': 'text/csv',
+      'Content-Length': Buffer.byteLength(fileContent)
+    }
+  };
+  
+  const uploadData = await httpRequest(uploadOptions, fileContent);
+  console.log('Successfully uploaded changelog to SharePoint');
+  console.log(`File URL: ${uploadData.webUrl}`);
+  
+} catch (error) {
+  console.error('Error uploading to SharePoint:', error.message);
+  // Don't fail the workflow if SharePoint upload fails
+}
+
+2025-05-12T14:18:56.2552177Z   github-token: ***
+2025-05-12T14:18:56.2552404Z   debug: false
+2025-05-12T14:18:56.2552609Z   user-agent: actions/github-script
+2025-05-12T14:18:56.2552957Z   result-encoding: json
+2025-05-12T14:18:56.2553166Z   retries: 0
+2025-05-12T14:18:56.2553384Z   retry-exempt-status-codes: 400,401,403,404,422
+2025-05-12T14:18:56.2553734Z env:
+2025-05-12T14:18:56.2553979Z   TENANT_ID: ***
+2025-05-12T14:18:56.2554244Z   CLIENT_ID: ***
+2025-05-12T14:18:56.2554694Z   CLIENT_SECRET: ***
+2025-05-12T14:18:56.2554946Z   SITE_ID: ***
+2025-05-12T14:18:56.2555134Z   DRIVE_ID: ***
+2025-05-12T14:18:56.2555413Z ##[endgroup]
+2025-05-12T14:18:56.3261307Z Preparing to upload changelog to SharePoint...
+2025-05-12T14:18:56.3266076Z Reading changelog from: /home/runner/work/diagrams/diagrams/html_files/CHANGELOG.csv
+2025-05-12T14:18:56.3689289Z Formatted changelog with 12 entries
+2025-05-12T14:18:56.3689968Z Getting access token...
+2025-05-12T14:18:56.6348611Z Access token obtained
+2025-05-12T14:18:56.6349717Z Attempting to detect SharePoint drives ***matically...
+2025-05-12T14:18:56.6350509Z Verifying site ID from secret: ***
+2025-05-12T14:18:57.7547893Z Site found: Datasphere File Connector
+2025-05-12T14:18:57.7548578Z Requesting drives list from: /v1.0/sites/***/drives
+2025-05-12T14:18:58.4585101Z Available drives:
+2025-05-12T14:18:58.4586497Z - Documents: b!wjmZ4y-ZzEeLMiCqRm1x9H3mO71JixdIg12xZz2kwrAhUCwRmjE_SLgzjLG1gDSD
+2025-05-12T14:18:58.4587458Z Looking for document library named "Shared Documents"
+2025-05-12T14:18:58.4588571Z Selected document library: Documents (b!wjmZ4y-ZzEeLMiCqRm1x9H3mO71JixdIg12xZz2kwrAhUCwRmjE_SLgzjLG1gDSD)
+2025-05-12T14:18:58.4590291Z Uploading changelog as Diagrams_Changelog.csv to folder "Diagrams" in drive b!wjmZ4y-ZzEeLMiCqRm1x9H3mO71JixdIg12xZz2kwrAhUCwRmjE_SLgzjLG1gDSD...
+2025-05-12T14:18:58.7463645Z Folder "Diagrams" already exists
+2025-05-12T14:18:59.1995775Z Successfully uploaded changelog to SharePoint
+2025-05-12T14:18:59.1997534Z File URL: https://frostaag.sharepoint.com/sites/DatasphereFileConnector/_layouts/15/Doc.aspx?sourcedoc=%7B5E88B953-9DC9-4ADC-BA37-72C165101B57%7D&file=Diagrams_Changelog.csv&action=default&mobileredirect=true

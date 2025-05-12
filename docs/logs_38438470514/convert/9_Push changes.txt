@@ -1,0 +1,29 @@
+﻿2025-05-12T14:16:15.7411927Z ##[group]Run # Try to push changes, with multiple retries for transient issues
+2025-05-12T14:16:15.7412489Z [36;1m# Try to push changes, with multiple retries for transient issues[0m
+2025-05-12T14:16:15.7412827Z [36;1mMAX_RETRIES=3[0m
+2025-05-12T14:16:15.7413045Z [36;1mRETRY_COUNT=0[0m
+2025-05-12T14:16:15.7413255Z [36;1mPUSH_SUCCESS=false[0m
+2025-05-12T14:16:15.7413472Z [36;1m[0m
+2025-05-12T14:16:15.7413766Z [36;1mwhile [ $RETRY_COUNT -lt $MAX_RETRIES ] && [ "$PUSH_SUCCESS" = false ]; do[0m
+2025-05-12T14:16:15.7414127Z [36;1m  if git push origin main; then[0m
+2025-05-12T14:16:15.7414458Z [36;1m    echo "Successfully pushed changes to remote repository."[0m
+2025-05-12T14:16:15.7414778Z [36;1m    PUSH_SUCCESS=true[0m
+2025-05-12T14:16:15.7414995Z [36;1m  else[0m
+2025-05-12T14:16:15.7415198Z [36;1m    RETRY_COUNT=$((RETRY_COUNT + 1))[0m
+2025-05-12T14:16:15.7415490Z [36;1m    if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then[0m
+2025-05-12T14:16:15.7415901Z [36;1m      echo "Push failed. Retrying in 5 seconds... (Attempt $RETRY_COUNT of $MAX_RETRIES)"[0m
+2025-05-12T14:16:15.7416304Z [36;1m      sleep 5[0m
+2025-05-12T14:16:15.7416496Z [36;1m      [0m
+2025-05-12T14:16:15.7416722Z [36;1m      # Pull latest changes again before retrying[0m
+2025-05-12T14:16:15.7417045Z [36;1m      echo "Pulling latest changes before retry..."[0m
+2025-05-12T14:16:15.7417353Z [36;1m      git pull --rebase origin main || true[0m
+2025-05-12T14:16:15.7417608Z [36;1m    else[0m
+2025-05-12T14:16:15.7417857Z [36;1m      echo "Failed to push after $MAX_RETRIES attempts."[0m
+2025-05-12T14:16:15.7418378Z [36;1m      echo "::warning::Failed to push changes ***matically. Please check repository."[0m
+2025-05-12T14:16:15.7418734Z [36;1m    fi[0m
+2025-05-12T14:16:15.7418910Z [36;1m  fi[0m
+2025-05-12T14:16:15.7419077Z [36;1mdone[0m
+2025-05-12T14:16:15.7442045Z shell: /usr/bin/bash -e {0}
+2025-05-12T14:16:15.7442290Z ##[endgroup]
+2025-05-12T14:16:15.9897669Z Everything up-to-date
+2025-05-12T14:16:15.9931366Z Successfully pushed changes to remote repository.

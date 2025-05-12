@@ -1,0 +1,137 @@
+﻿2025-05-12T14:19:06.7006517Z Current runner version: '2.323.0'
+2025-05-12T14:19:06.7034368Z ##[group]Operating System
+2025-05-12T14:19:06.7035349Z Ubuntu
+2025-05-12T14:19:06.7035805Z 24.04.2
+2025-05-12T14:19:06.7036391Z LTS
+2025-05-12T14:19:06.7036905Z ##[endgroup]
+2025-05-12T14:19:06.7037378Z ##[group]Runner Image
+2025-05-12T14:19:06.7038117Z Image: ubuntu-24.04
+2025-05-12T14:19:06.7038665Z Version: 20250504.1.0
+2025-05-12T14:19:06.7039841Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20250504.1/images/ubuntu/Ubuntu2404-Readme.md
+2025-05-12T14:19:06.7041332Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20250504.1
+2025-05-12T14:19:06.7042221Z ##[endgroup]
+2025-05-12T14:19:06.7042680Z ##[group]Runner Image Provisioner
+2025-05-12T14:19:06.7043376Z 2.0.422.1
+2025-05-12T14:19:06.7043806Z ##[endgroup]
+2025-05-12T14:19:06.7044861Z ##[group]GITHUB_TOKEN Permissions
+2025-05-12T14:19:06.7046960Z Contents: write
+2025-05-12T14:19:06.7047530Z Metadata: read
+2025-05-12T14:19:06.7048294Z ##[endgroup]
+2025-05-12T14:19:06.7051231Z Secret source: Actions
+2025-05-12T14:19:06.7052258Z Prepare workflow directory
+2025-05-12T14:19:06.7414100Z Prepare all required actions
+2025-05-12T14:19:06.7521983Z Complete job name: teams-notification
+2025-05-12T14:19:06.8355707Z ##[group]Run # Create JSON payload for Teams webhook
+2025-05-12T14:19:06.8356660Z [36;1m# Create JSON payload for Teams webhook[0m
+2025-05-12T14:19:06.8357316Z [36;1mPAYLOAD=$(cat << EOF[0m
+2025-05-12T14:19:06.8357969Z [36;1m{[0m
+2025-05-12T14:19:06.8358414Z [36;1m  "@type": "MessageCard",[0m
+2025-05-12T14:19:06.8359736Z [36;1m  "@context": "https://schema.org/extensions",[0m
+2025-05-12T14:19:06.8360569Z [36;1m  "themeColor": "00FF00",[0m
+2025-05-12T14:19:06.8361234Z [36;1m  "summary": "Draw.io Conversion Workflow Succeeded",[0m
+2025-05-12T14:19:06.8361979Z [36;1m  "sections": [[0m
+2025-05-12T14:19:06.8362484Z [36;1m    {[0m
+2025-05-12T14:19:06.8363287Z [36;1m      "activityTitle": "✅ Draw.io Conversion Workflow Completed",[0m
+2025-05-12T14:19:06.8364404Z [36;1m      "activitySubtitle": "Diagrams were successfully processed",[0m
+2025-05-12T14:19:06.8365171Z [36;1m      "facts": [[0m
+2025-05-12T14:19:06.8365651Z [36;1m        {[0m
+2025-05-12T14:19:06.8366327Z [36;1m          "name": "Repository",[0m
+2025-05-12T14:19:06.8366933Z [36;1m          "value": "frostaag/diagrams"[0m
+2025-05-12T14:19:06.8367614Z [36;1m        },[0m
+2025-05-12T14:19:06.8368131Z [36;1m        {[0m
+2025-05-12T14:19:06.8368615Z [36;1m          "name": "Workflow",[0m
+2025-05-12T14:19:06.8369291Z [36;1m          "value": "Convert Draw.io Files"[0m
+2025-05-12T14:19:06.8370242Z [36;1m        },[0m
+2025-05-12T14:19:06.8370729Z [36;1m        {[0m
+2025-05-12T14:19:06.8371294Z [36;1m          "name": "Commit",[0m
+2025-05-12T14:19:06.8371938Z [36;1m          "value": "31fadfc7327631737a55e095582df0e66d6e6e24"[0m
+2025-05-12T14:19:06.8372598Z [36;1m        },[0m
+2025-05-12T14:19:06.8373140Z [36;1m        {[0m
+2025-05-12T14:19:06.8373644Z [36;1m          "name": "Triggered by",[0m
+2025-05-12T14:19:06.8374269Z [36;1m          "value": "lucasdreger"[0m
+2025-05-12T14:19:06.8374909Z [36;1m        }[0m
+2025-05-12T14:19:06.8375352Z [36;1m      ],[0m
+2025-05-12T14:19:06.8375833Z [36;1m      "markdown": true[0m
+2025-05-12T14:19:06.8376435Z [36;1m    }[0m
+2025-05-12T14:19:06.8376858Z [36;1m  ],[0m
+2025-05-12T14:19:06.8377352Z [36;1m  "potentialAction": [[0m
+2025-05-12T14:19:06.8377919Z [36;1m    {[0m
+2025-05-12T14:19:06.8378399Z [36;1m      "@type": "OpenUri",[0m
+2025-05-12T14:19:06.8379027Z [36;1m      "name": "View Workflow Run",[0m
+2025-05-12T14:19:06.8379830Z [36;1m      "targets": [[0m
+2025-05-12T14:19:06.8380388Z [36;1m        {[0m
+2025-05-12T14:19:06.8380982Z [36;1m          "os": "default",[0m
+2025-05-12T14:19:06.8381744Z [36;1m          "uri": "https://github.com/frostaag/diagrams/actions/runs/14974680823"[0m
+2025-05-12T14:19:06.8382515Z [36;1m        }[0m
+2025-05-12T14:19:06.8383037Z [36;1m      ][0m
+2025-05-12T14:19:06.8383883Z [36;1m    }[0m
+2025-05-12T14:19:06.8384348Z [36;1m  ][0m
+2025-05-12T14:19:06.8384899Z [36;1m}[0m
+2025-05-12T14:19:06.8385307Z [36;1mEOF[0m
+2025-05-12T14:19:06.8385751Z [36;1m)[0m
+2025-05-12T14:19:06.8386205Z [36;1m[0m
+2025-05-12T14:19:06.8386709Z [36;1m# Send the payload to Teams webhook[0m
+2025-05-12T14:19:06.8389240Z [36;1mcurl -H "Content-Type: application/json" -d "$PAYLOAD" "***"[0m
+2025-05-12T14:19:06.8592757Z shell: /usr/bin/bash -e {0}
+2025-05-12T14:19:06.8594267Z ##[endgroup]
+2025-05-12T14:19:06.8908590Z   % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+2025-05-12T14:19:06.8910655Z                                  Dload  Upload   Total   Spent    Left  Speed
+2025-05-12T14:19:06.8911412Z 
+2025-05-12T14:19:08.0944998Z   0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
+2025-05-12T14:19:08.2309499Z 100  1011    0     0  100  1011      0    837  0:00:01  0:00:01 --:--:--   838
+2025-05-12T14:19:08.2311597Z 100  1012    0     1  100  1011      0    752  0:00:01  0:00:01 --:--:--   753
+2025-05-12T14:19:08.2312923Z 100  1012    0     1  100  1011      0    752  0:00:01  0:00:01 --:--:--   752
+2025-05-12T14:19:08.2337253Z 1
+2025-05-12T14:19:08.2481127Z ##[group]Run echo "Checking for changed .drawio files..."
+2025-05-12T14:19:08.2482945Z [36;1mecho "Checking for changed .drawio files..."[0m
+2025-05-12T14:19:08.2484376Z [36;1m[0m
+2025-05-12T14:19:08.2485315Z [36;1m# Initialize output[0m
+2025-05-12T14:19:08.2486472Z [36;1mCHANGES_DETECTED=false[0m
+2025-05-12T14:19:08.2487604Z [36;1m[0m
+2025-05-12T14:19:08.2488685Z [36;1m# Method 1: Check for changes between HEAD and HEAD^[0m
+2025-05-12T14:19:08.2490536Z [36;1mecho "Trying method 1: git diff HEAD^ HEAD"[0m
+2025-05-12T14:19:08.2492425Z [36;1mif git diff --name-only HEAD^ HEAD 2>/dev/null | grep -q "\.drawio$"; then[0m
+2025-05-12T14:19:08.2494250Z [36;1m  CHANGES_DETECTED=true[0m
+2025-05-12T14:19:08.2495561Z [36;1m  echo "Changes detected using method 1"[0m
+2025-05-12T14:19:08.2496879Z [36;1mfi[0m
+2025-05-12T14:19:08.2497688Z [36;1m[0m
+2025-05-12T14:19:08.2498872Z [36;1m# If method 1 failed, try method 2 (useful for initial commits)[0m
+2025-05-12T14:19:08.2500828Z [36;1mif [ "$CHANGES_DETECTED" = false ]; then[0m
+2025-05-12T14:19:08.2502442Z [36;1m  echo "Trying method 2: git diff-tree (for initial commits)"[0m
+2025-05-12T14:19:08.2504666Z [36;1m  if git diff-tree --no-commit-id --name-only -r HEAD 2>/dev/null | grep -q "\.drawio$"; then[0m
+2025-05-12T14:19:08.2506587Z [36;1m    CHANGES_DETECTED=true[0m
+2025-05-12T14:19:08.2507811Z [36;1m    echo "Changes detected using method 2"[0m
+2025-05-12T14:19:08.2509054Z [36;1m  fi[0m
+2025-05-12T14:19:08.2510099Z [36;1mfi[0m
+2025-05-12T14:19:08.2510909Z [36;1m[0m
+2025-05-12T14:19:08.2512317Z [36;1m# If still no changes detected, try method 3 (list all .drawio files on a new repo)[0m
+2025-05-12T14:19:08.2514187Z [36;1mif [ "$CHANGES_DETECTED" = false ]; then[0m
+2025-05-12T14:19:08.2515827Z [36;1m  echo "Trying method 3: check for existence of any .drawio files"[0m
+2025-05-12T14:19:08.2517900Z [36;1m  if find . -name "*.drawio" -type f 2>/dev/null | grep -q "\.drawio$"; then[0m
+2025-05-12T14:19:08.2519761Z [36;1m    CHANGES_DETECTED=true[0m
+2025-05-12T14:19:08.2521283Z [36;1m    echo "Changes detected using method 3 (found .drawio files)"[0m
+2025-05-12T14:19:08.2522834Z [36;1m  fi[0m
+2025-05-12T14:19:08.2523677Z [36;1mfi[0m
+2025-05-12T14:19:08.2524479Z [36;1m[0m
+2025-05-12T14:19:08.2525309Z [36;1m# Set the output[0m
+2025-05-12T14:19:08.2526415Z [36;1mif [ "$CHANGES_DETECTED" = true ]; then[0m
+2025-05-12T14:19:08.2527842Z [36;1m  echo "files_changed=true" >> $GITHUB_OUTPUT[0m
+2025-05-12T14:19:08.2529473Z [36;1m  echo ".drawio files were changed or found in this commit"[0m
+2025-05-12T14:19:08.2531129Z [36;1m  [0m
+2025-05-12T14:19:08.2532332Z [36;1m  # List the files that were changed/found for better debugging[0m
+2025-05-12T14:19:08.2533972Z [36;1m  echo "Changed or found .drawio files:"[0m
+2025-05-12T14:19:08.2535930Z [36;1m  git diff --name-only HEAD^ HEAD 2>/dev/null | grep "\.drawio$" || \[0m
+2025-05-12T14:19:08.2538168Z [36;1m  git diff-tree --no-commit-id --name-only -r HEAD 2>/dev/null | grep "\.drawio$" || \[0m
+2025-05-12T14:19:08.2540280Z [36;1m  find . -name "*.drawio" -type f | sort[0m
+2025-05-12T14:19:08.2541515Z [36;1melse[0m
+2025-05-12T14:19:08.2542549Z [36;1m  echo "files_changed=false" >> $GITHUB_OUTPUT[0m
+2025-05-12T14:19:08.2544097Z [36;1m  echo "No .drawio files were changed in this commit"[0m
+2025-05-12T14:19:08.2545454Z [36;1mfi[0m
+2025-05-12T14:19:08.2572231Z shell: /usr/bin/bash -e {0}
+2025-05-12T14:19:08.2573281Z ##[endgroup]
+2025-05-12T14:19:08.2629984Z Checking for changed .drawio files...
+2025-05-12T14:19:08.2631356Z Trying method 1: git diff HEAD^ HEAD
+2025-05-12T14:19:08.2694138Z Trying method 2: git diff-tree (for initial commits)
+2025-05-12T14:19:08.2711656Z Trying method 3: check for existence of any .drawio files
+2025-05-12T14:19:08.2728982Z No .drawio files were changed in this commit
+2025-05-12T14:19:08.2832488Z Cleaning up orphan processes

@@ -1,0 +1,23 @@
+﻿2025-05-12T14:16:24.5497966Z Current runner version: '2.323.0'
+2025-05-12T14:16:24.5525634Z ##[group]Operating System
+2025-05-12T14:16:24.5526427Z Ubuntu
+2025-05-12T14:16:24.5526918Z 24.04.2
+2025-05-12T14:16:24.5527491Z LTS
+2025-05-12T14:16:24.5527983Z ##[endgroup]
+2025-05-12T14:16:24.5528573Z ##[group]Runner Image
+2025-05-12T14:16:24.5529247Z Image: ubuntu-24.04
+2025-05-12T14:16:24.5529823Z Version: 20250504.1.0
+2025-05-12T14:16:24.5530842Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20250504.1/images/ubuntu/Ubuntu2404-Readme.md
+2025-05-12T14:16:24.5532301Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20250504.1
+2025-05-12T14:16:24.5533227Z ##[endgroup]
+2025-05-12T14:16:24.5533948Z ##[group]Runner Image Provisioner
+2025-05-12T14:16:24.5534668Z 2.0.422.1
+2025-05-12T14:16:24.5535151Z ##[endgroup]
+2025-05-12T14:16:24.5536180Z ##[group]GITHUB_TOKEN Permissions
+2025-05-12T14:16:24.5537946Z Contents: write
+2025-05-12T14:16:24.5538506Z Metadata: read
+2025-05-12T14:16:24.5539104Z ##[endgroup]
+2025-05-12T14:16:24.5541412Z Secret source: Actions
+2025-05-12T14:16:24.5542154Z Prepare workflow directory
+2025-05-12T14:16:24.5862337Z Prepare all required actions
+2025-05-12T14:16:24.5958932Z Complete job name: teams-notification

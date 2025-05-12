@@ -144,6 +144,9 @@ jobs:
               echo "Pushing ID assignment changes to branch ${{ github.ref_name }}..."
               # Using GITHUB_TOKEN for push
               git push "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" HEAD:${{ github.ref_name }}
+              
+              echo "Pulling latest changes to sync workspace after ID assignment push..."
+              git pull --rebase "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" ${{ github.ref_name }}
             else
               echo "No changes staged for commit, though NEW_IDS_WERE_ASSIGNED was true. This might indicate an issue or that changes were already committed by another process."
             fi

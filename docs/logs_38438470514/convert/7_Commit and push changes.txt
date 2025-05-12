@@ -1,0 +1,42 @@
+﻿2025-05-12T14:16:14.5683183Z ##[group]Run git config --local user.name "github-actions[bot]"
+2025-05-12T14:16:14.5683705Z [36;1mgit config --local user.name "github-actions[bot]"[0m
+2025-05-12T14:16:14.5684216Z [36;1mgit config --local user.email "github-actions[bot]@users.noreply.github.com"[0m
+2025-05-12T14:16:14.5684831Z [36;1m[0m
+2025-05-12T14:16:14.5685084Z [36;1m# Fetch latest changes before adding our changes[0m
+2025-05-12T14:16:14.5685508Z [36;1mecho "Fetching latest changes from remote repository..."[0m
+2025-05-12T14:16:14.5685879Z [36;1mgit fetch origin[0m
+2025-05-12T14:16:14.5686106Z [36;1m[0m
+2025-05-12T14:16:14.5686300Z [36;1m# Add our changes[0m
+2025-05-12T14:16:14.5686547Z [36;1mgit add svg_files html_files[0m
+2025-05-12T14:16:14.5686811Z [36;1m[0m
+2025-05-12T14:16:14.5687021Z [36;1m# Only commit if there are changes[0m
+2025-05-12T14:16:14.5687326Z [36;1mif git diff --staged --quiet; then[0m
+2025-05-12T14:16:14.5687624Z [36;1m  echo "No changes to commit"[0m
+2025-05-12T14:16:14.5687940Z [36;1m  echo "changes_made=false" >> $GITHUB_OUTPUT[0m
+2025-05-12T14:16:14.5688278Z [36;1melse[0m
+2025-05-12T14:16:14.5688544Z [36;1m  git commit -m "Auto-converted draw.io files"[0m
+2025-05-12T14:16:14.5688851Z [36;1m  [0m
+2025-05-12T14:16:14.5689094Z [36;1m  # Pull the latest changes before pushing[0m
+2025-05-12T14:16:14.5689482Z [36;1m  echo "Pulling latest changes from remote repository..."[0m
+2025-05-12T14:16:14.5689893Z [36;1m  git pull --rebase origin ${GITHUB_REF#refs/heads/}[0m
+2025-05-12T14:16:14.5690215Z [36;1m  [0m
+2025-05-12T14:16:14.5690460Z [36;1m  # Use GitHub token for authentication and push[0m
+2025-05-12T14:16:14.5690819Z [36;1m  echo "Pushing changes to remote repository..."[0m
+2025-05-12T14:16:14.5691980Z [36;1m  git push "***github.com/frostaag/diagrams.git" HEAD:${GITHUB_REF#refs/heads/}[0m
+2025-05-12T14:16:14.5692478Z [36;1m  echo "changes_made=true" >> $GITHUB_OUTPUT[0m
+2025-05-12T14:16:14.5692788Z [36;1mfi[0m
+2025-05-12T14:16:14.5718171Z shell: /usr/bin/bash -e {0}
+2025-05-12T14:16:14.5718446Z ##[endgroup]
+2025-05-12T14:16:14.5791676Z Fetching latest changes from remote repository...
+2025-05-12T14:16:14.8424310Z [main 78c2847] Auto-converted draw.io files
+2025-05-12T14:16:14.8424846Z  4 files changed, 20 insertions(+)
+2025-05-12T14:16:14.8425309Z  create mode 100644 drawio_files/.id_counter
+2025-05-12T14:16:14.8425769Z  create mode 100644 html_files/18.html
+2025-05-12T14:16:14.8426185Z  create mode 100644 svg_files/18.svg
+2025-05-12T14:16:14.8427419Z Pulling latest changes from remote repository...
+2025-05-12T14:16:15.1102073Z From https://github.com/frostaag/diagrams
+2025-05-12T14:16:15.1102524Z  * branch            main       -> FETCH_HEAD
+2025-05-12T14:16:15.1177561Z Current branch main is up to date.
+2025-05-12T14:16:15.1198634Z Pushing changes to remote repository...
+2025-05-12T14:16:15.7162271Z To https://github.com/frostaag/diagrams.git
+2025-05-12T14:16:15.7163059Z    548704f..78c2847  HEAD -> main

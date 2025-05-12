@@ -1,0 +1,34 @@
+﻿2025-05-12T14:18:25.8469896Z Current runner version: '2.323.0'
+2025-05-12T14:18:25.8494737Z ##[group]Operating System
+2025-05-12T14:18:25.8495569Z Ubuntu
+2025-05-12T14:18:25.8496176Z 24.04.2
+2025-05-12T14:18:25.8496626Z LTS
+2025-05-12T14:18:25.8497109Z ##[endgroup]
+2025-05-12T14:18:25.8497681Z ##[group]Runner Image
+2025-05-12T14:18:25.8498299Z Image: ubuntu-24.04
+2025-05-12T14:18:25.8498816Z Version: 20250504.1.0
+2025-05-12T14:18:25.8500296Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20250504.1/images/ubuntu/Ubuntu2404-Readme.md
+2025-05-12T14:18:25.8501729Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20250504.1
+2025-05-12T14:18:25.8502680Z ##[endgroup]
+2025-05-12T14:18:25.8503254Z ##[group]Runner Image Provisioner
+2025-05-12T14:18:25.8503830Z 2.0.422.1
+2025-05-12T14:18:25.8504358Z ##[endgroup]
+2025-05-12T14:18:25.8505410Z ##[group]GITHUB_TOKEN Permissions
+2025-05-12T14:18:25.8507512Z Contents: write
+2025-05-12T14:18:25.8508127Z Metadata: read
+2025-05-12T14:18:25.8508616Z ##[endgroup]
+2025-05-12T14:18:25.8511502Z Secret source: Actions
+2025-05-12T14:18:25.8512209Z Prepare workflow directory
+2025-05-12T14:18:25.8841462Z Prepare all required actions
+2025-05-12T14:18:25.8879213Z Getting action download info
+2025-05-12T14:18:26.4703184Z ##[group]Download immutable action package 'actions/checkout@v3'
+2025-05-12T14:18:26.4704360Z Version: 3.6.0
+2025-05-12T14:18:26.4705383Z Digest: sha256:942562b9c7d4b1f2557f1da21f4d3eb4eb4fd01f2ad78b2a6e187d1b193e0a0f
+2025-05-12T14:18:26.4706549Z Source commit SHA: f43a0e5ff2bd294095638e18286ca9a3d1956744
+2025-05-12T14:18:26.4707385Z ##[endgroup]
+2025-05-12T14:18:26.5766073Z ##[group]Download immutable action package 'actions/github-script@v6'
+2025-05-12T14:18:26.5766914Z Version: 6.4.1
+2025-05-12T14:18:26.5767789Z Digest: sha256:c493e77940bce2b1f3c9cb8e34f9a4c963412fab10227de97afd5905dec76e82
+2025-05-12T14:18:26.5768774Z Source commit SHA: d7906e4ad0b1822421a7e6a35d5ca353c962f410
+2025-05-12T14:18:26.5769737Z ##[endgroup]
+2025-05-12T14:18:26.9704550Z Complete job name: convert

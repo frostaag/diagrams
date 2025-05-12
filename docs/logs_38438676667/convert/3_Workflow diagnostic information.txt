@@ -1,0 +1,59 @@
+﻿2025-05-12T14:18:28.4285060Z ##[group]Run echo "============================================"
+2025-05-12T14:18:28.4286570Z [36;1mecho "============================================"[0m
+2025-05-12T14:18:28.4287905Z [36;1mecho "WORKFLOW DIAGNOSTIC INFORMATION"[0m
+2025-05-12T14:18:28.4289232Z [36;1mecho "============================================"[0m
+2025-05-12T14:18:28.4290742Z [36;1mecho "Repository: frostaag/diagrams"[0m
+2025-05-12T14:18:28.4291912Z [36;1mecho "Branch: main"[0m
+2025-05-12T14:18:28.4292931Z [36;1mecho "Actor: lucasdreger"[0m
+2025-05-12T14:18:28.4294082Z [36;1mecho "Workflow: Convert Draw.io Files"[0m
+2025-05-12T14:18:28.4295258Z [36;1mecho "Event: push"[0m
+2025-05-12T14:18:28.4296495Z [36;1mecho "Commit: 31fadfc7327631737a55e095582df0e66d6e6e24"[0m
+2025-05-12T14:18:28.4297941Z [36;1mecho "============================================"[0m
+2025-05-12T14:18:28.4299161Z [36;1mecho "LISTING DRAWIO FILES:"[0m
+2025-05-12T14:18:28.4301122Z [36;1mfind drawio_files -name "*.drawio" -type f 2>/dev/null | sort || echo "No .drawio files found"[0m
+2025-05-12T14:18:28.4303063Z [36;1mecho "============================================"[0m
+2025-05-12T14:18:28.4304256Z [36;1mecho "GIT STATUS:"[0m
+2025-05-12T14:18:28.4305214Z [36;1mgit status[0m
+2025-05-12T14:18:28.4306442Z [36;1mecho "============================================"[0m
+2025-05-12T14:18:28.4307695Z [36;1mecho "RECENTLY MODIFIED FILES:"[0m
+2025-05-12T14:18:28.4309282Z [36;1mgit diff --name-only HEAD~5 HEAD 2>/dev/null || echo "Cannot get recent changes"[0m
+2025-05-12T14:18:28.4311146Z [36;1mecho "============================================"[0m
+2025-05-12T14:18:28.4341646Z shell: /usr/bin/bash -e {0}
+2025-05-12T14:18:28.4342659Z ##[endgroup]
+2025-05-12T14:18:28.4416691Z ============================================
+2025-05-12T14:18:28.4418371Z WORKFLOW DIAGNOSTIC INFORMATION
+2025-05-12T14:18:28.4420291Z ============================================
+2025-05-12T14:18:28.4421938Z Repository: frostaag/diagrams
+2025-05-12T14:18:28.4423073Z Branch: main
+2025-05-12T14:18:28.4424005Z Actor: lucasdreger
+2025-05-12T14:18:28.4425098Z Workflow: Convert Draw.io Files
+2025-05-12T14:18:28.4426168Z Event: push
+2025-05-12T14:18:28.4427179Z Commit: 31fadfc7327631737a55e095582df0e66d6e6e24
+2025-05-12T14:18:28.4428584Z ============================================
+2025-05-12T14:18:28.4430028Z LISTING DRAWIO FILES:
+2025-05-12T14:18:28.4437500Z drawio_files/..1. .drawio
+2025-05-12T14:18:28.4438642Z drawio_files/17.drawio
+2025-05-12T14:18:28.4440330Z drawio_files/18.drawio
+2025-05-12T14:18:28.4441801Z drawio_files/19.drawio
+2025-05-12T14:18:28.4442786Z drawio_files/25.drawio
+2025-05-12T14:18:28.4443844Z drawio_files/3.1 SAP Cloud Authentication.drawio
+2025-05-12T14:18:28.4445053Z drawio_files/3.1 Test.drawio
+2025-05-12T14:18:28.4446159Z drawio_files/3.1.1. SAP Cloud Simplified.drawio
+2025-05-12T14:18:28.4447449Z drawio_files/3.1.2. SAP Cloud Simplified.drawio
+2025-05-12T14:18:28.4448671Z drawio_files/Untitled Diagram.drawio
+2025-05-12T14:18:28.4449988Z ============================================
+2025-05-12T14:18:28.4451049Z GIT STATUS:
+2025-05-12T14:18:28.4631995Z On branch main
+2025-05-12T14:18:28.4633787Z Your branch is up to date with 'origin/main'.
+2025-05-12T14:18:28.4635628Z 
+2025-05-12T14:18:28.4636502Z nothing to commit, working tree clean
+2025-05-12T14:18:28.4638167Z ============================================
+2025-05-12T14:18:28.4639891Z RECENTLY MODIFIED FILES:
+2025-05-12T14:18:28.4652078Z .github/workflows/drawio-convert.yml
+2025-05-12T14:18:28.4653397Z drawio_files/.id_counter
+2025-05-12T14:18:28.4654967Z drawio_files/18.drawio
+2025-05-12T14:18:28.4656746Z drawio_files/19.drawio
+2025-05-12T14:18:28.4657999Z html_files/18.html
+2025-05-12T14:18:28.4658890Z html_files/CHANGELOG.csv
+2025-05-12T14:18:28.4660071Z svg_files/18.svg
+2025-05-12T14:18:28.4660978Z ============================================

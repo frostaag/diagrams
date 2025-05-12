@@ -1,0 +1,110 @@
+﻿2025-05-12T14:18:28.4722333Z ##[group]Run echo "============================================"
+2025-05-12T14:18:28.4723865Z [36;1mecho "============================================"[0m
+2025-05-12T14:18:28.4725178Z [36;1mecho "ASSIGNING IDS TO NEW DRAWIO FILES"[0m
+2025-05-12T14:18:28.4726453Z [36;1mecho "============================================"[0m
+2025-05-12T14:18:28.4727852Z [36;1mgit config --local user.name "github-actions[bot]"[0m
+2025-05-12T14:18:28.4729866Z [36;1mgit config --local user.email "github-actions[bot]@users.noreply.github.com"[0m
+2025-05-12T14:18:28.4731488Z [36;1m[0m
+2025-05-12T14:18:28.4732419Z [36;1mID_COUNTER_FILE="drawio_files/.id_counter"[0m
+2025-05-12T14:18:28.4733647Z [36;1mNEW_IDS_WERE_ASSIGNED=false[0m
+2025-05-12T14:18:28.4734662Z [36;1m[0m
+2025-05-12T14:18:28.4735598Z [36;1m# Initialize counter file if it doesn't exist[0m
+2025-05-12T14:18:28.4736867Z [36;1mif [ ! -f "$ID_COUNTER_FILE" ]; then[0m
+2025-05-12T14:18:28.4738207Z [36;1m  echo "Initializing ID counter file: $ID_COUNTER_FILE"[0m
+2025-05-12T14:18:28.4740088Z [36;1m  # Ensure the directory exists before trying to create the file[0m
+2025-05-12T14:18:28.4741625Z [36;1m  mkdir -p "$(dirname "$ID_COUNTER_FILE")"[0m
+2025-05-12T14:18:28.4742823Z [36;1m  echo "0" > "$ID_COUNTER_FILE"[0m
+2025-05-12T14:18:28.4744109Z [36;1m  git add "$ID_COUNTER_FILE" # Stage it if newly created[0m
+2025-05-12T14:18:28.4745573Z [36;1mfi[0m
+2025-05-12T14:18:28.4746329Z [36;1m[0m
+2025-05-12T14:18:28.4747171Z [36;1mCURRENT_ID=$(cat "$ID_COUNTER_FILE")[0m
+2025-05-12T14:18:28.4748611Z [36;1mecho "Current last assigned ID from counter is: $CURRENT_ID"[0m
+2025-05-12T14:18:28.4750148Z [36;1m[0m
+2025-05-12T14:18:28.4750967Z [36;1m# Determine files to process[0m
+2025-05-12T14:18:28.4752044Z [36;1mFILES_TO_PROCESS=()[0m
+2025-05-12T14:18:28.4753234Z [36;1m# Check if HEAD^ exists (i.e., not the initial commit)[0m
+2025-05-12T14:18:28.4754822Z [36;1mif git rev-parse --quiet --verify HEAD^ > /dev/null 2>&1; then[0m
+2025-05-12T14:18:28.4756692Z [36;1m  echo "Standard push detected. Scanning for .drawio files added in this push."[0m
+2025-05-12T14:18:28.4758865Z [36;1m  # Get files added (A) in the commit, looking only in drawio_files/ and for .drawio extensions[0m
+2025-05-12T14:18:28.4760926Z [36;1m  # Using a loop to correctly handle filenames with spaces[0m
+2025-05-12T14:18:28.4762256Z [36;1m  while IFS= read -r file; do[0m
+2025-05-12T14:18:28.4763580Z [36;1m    if [[ "$file" == drawio_files/* ]] && [[ "$file" == *.drawio ]]; then[0m
+2025-05-12T14:18:28.4764980Z [36;1m      FILES_TO_PROCESS+=("$file")[0m
+2025-05-12T14:18:28.4766028Z [36;1m    fi[0m
+2025-05-12T14:18:28.4767391Z [36;1m  done < <(git diff --name-only --diff-filter=A HEAD^ HEAD -- 'drawio_files/**/*.drawio')[0m
+2025-05-12T14:18:28.4768977Z [36;1melse[0m
+2025-05-12T14:18:28.4770611Z [36;1m  echo "Initial commit or no parent commit found. Scanning all .drawio files in drawio_files/."[0m
+2025-05-12T14:18:28.4772831Z [36;1m  # Find all .drawio files in the drawio_files directory, null-terminated for safety[0m
+2025-05-12T14:18:28.4774500Z [36;1m  while IFS= read -r -d $'\\0' file; do[0m
+2025-05-12T14:18:28.4775668Z [36;1m    FILES_TO_PROCESS+=("$file")[0m
+2025-05-12T14:18:28.4777008Z [36;1m  done < <(find drawio_files -type f -name "*.drawio" -print0)[0m
+2025-05-12T14:18:28.4778293Z [36;1mfi[0m
+2025-05-12T14:18:28.4779041Z [36;1m[0m
+2025-05-12T14:18:28.4780086Z [36;1mif [ ${#FILES_TO_PROCESS[@]} -eq 0 ]; then[0m
+2025-05-12T14:18:28.4781530Z [36;1m  echo "No new .drawio files found to process for ID assignment."[0m
+2025-05-12T14:18:28.4782876Z [36;1melse[0m
+2025-05-12T14:18:28.4784139Z [36;1m  echo "Found ${#FILES_TO_PROCESS[@]} potential new .drawio file(s) to process:"[0m
+2025-05-12T14:18:28.4785757Z [36;1m  printf "%s\\n" "${FILES_TO_PROCESS[@]}"[0m
+2025-05-12T14:18:28.4786853Z [36;1m[0m
+2025-05-12T14:18:28.4787786Z [36;1m  for file_path in "${FILES_TO_PROCESS[@]}"; do[0m
+2025-05-12T14:18:28.4789262Z [36;1m    # Double check if the file actually exists before processing[0m
+2025-05-12T14:18:28.4791070Z [36;1m    if [ ! -f "$file_path" ]; then[0m
+2025-05-12T14:18:28.4792454Z [36;1m      echo "File '$file_path' listed but not found on disk. Skipping."[0m
+2025-05-12T14:18:28.4793829Z [36;1m      continue[0m
+2025-05-12T14:18:28.4794709Z [36;1m    fi[0m
+2025-05-12T14:18:28.4795498Z [36;1m[0m
+2025-05-12T14:18:28.4796527Z [36;1m    original_basename=$(basename "$file_path" .drawio)[0m
+2025-05-12T14:18:28.4797872Z [36;1m    file_dir=$(dirname "$file_path")[0m
+2025-05-12T14:18:28.4798936Z [36;1m[0m
+2025-05-12T14:18:28.4800468Z [36;1m    # Check if filename already contains the ID pattern " (xxx)" at the end (before .drawio)[0m
+2025-05-12T14:18:28.4802718Z [36;1m    # Regex: space, opening parenthesis, three digits, closing parenthesis, end of string.[0m
+2025-05-12T14:18:28.4804557Z [36;1m    if ! [[ "$original_basename" =~ \ \([0-9]{3}\)$ ]]; then[0m
+2025-05-12T14:18:28.4805848Z [36;1m      CURRENT_ID=$((CURRENT_ID + 1))[0m
+2025-05-12T14:18:28.4807099Z [36;1m      FORMATTED_ID=$(printf "%03d" "$CURRENT_ID")[0m
+2025-05-12T14:18:28.4808256Z [36;1m      [0m
+2025-05-12T14:18:28.4809379Z [36;1m      new_filename_base="${original_basename} (${FORMATTED_ID})"[0m
+2025-05-12T14:18:28.4811123Z [36;1m      new_filepath="${file_dir}/${new_filename_base}.drawio"[0m
+2025-05-12T14:18:28.4812375Z [36;1m[0m
+2025-05-12T14:18:28.4813683Z [36;1m      echo "Assigning ID ${FORMATTED_ID} to '$file_path' -> '$new_filepath'"[0m
+2025-05-12T14:18:28.4815243Z [36;1m      git mv "$file_path" "$new_filepath"[0m
+2025-05-12T14:18:28.4816634Z [36;1m      # git add "$new_filepath" # git mv already stages the change[0m
+2025-05-12T14:18:28.4818021Z [36;1m      NEW_IDS_WERE_ASSIGNED=true[0m
+2025-05-12T14:18:28.4819065Z [36;1m    else[0m
+2025-05-12T14:18:28.4820669Z [36;1m      echo "File '$file_path' (basename: '$original_basename') already has an ID pattern. Skipping."[0m
+2025-05-12T14:18:28.4822333Z [36;1m    fi[0m
+2025-05-12T14:18:28.4823126Z [36;1m  done[0m
+2025-05-12T14:18:28.4823920Z [36;1mfi[0m
+2025-05-12T14:18:28.4824663Z [36;1m[0m
+2025-05-12T14:18:28.4825535Z [36;1mif [ "$NEW_IDS_WERE_ASSIGNED" = true ]; then[0m
+2025-05-12T14:18:28.4827244Z [36;1m  echo "New IDs were assigned. Updating counter to $CURRENT_ID and committing changes."[0m
+2025-05-12T14:18:28.4828977Z [36;1m  echo "$CURRENT_ID" > "$ID_COUNTER_FILE"[0m
+2025-05-12T14:18:28.4830297Z [36;1m  git add "$ID_COUNTER_FILE"[0m
+2025-05-12T14:18:28.4831302Z [36;1m  [0m
+2025-05-12T14:18:28.4832220Z [36;1m  echo "Staging status after ID assignment:"[0m
+2025-05-12T14:18:28.4833403Z [36;1m  git status # For logging[0m
+2025-05-12T14:18:28.4834395Z [36;1m  [0m
+2025-05-12T14:18:28.4835502Z [36;1m  # Check if there are changes to commit (counter or renamed files)[0m
+2025-05-12T14:18:28.4836982Z [36;1m  if ! git diff --staged --quiet; then[0m
+2025-05-12T14:18:28.4838361Z [36;1m    echo "Committing ID assignments and counter update..."[0m
+2025-05-12T14:18:28.4840265Z [36;1m    git commit -m "Chore: Assign IDs to new diagrams and update counter [skip ci]"[0m
+2025-05-12T14:18:28.4841772Z [36;1m    [0m
+2025-05-12T14:18:28.4842823Z [36;1m    echo "Pushing ID assignment changes to branch main..."[0m
+2025-05-12T14:18:28.4844173Z [36;1m    # Using GITHUB_TOKEN for push[0m
+2025-05-12T14:18:28.4846739Z [36;1m    git push "***github.com/frostaag/diagrams.git" HEAD:main[0m
+2025-05-12T14:18:28.4848030Z [36;1m  else[0m
+2025-05-12T14:18:28.4850428Z [36;1m    echo "No changes staged for commit, though NEW_IDS_WERE_ASSIGNED was true. This might indicate an issue or that changes were already committed by another process."[0m
+2025-05-12T14:18:28.4852844Z [36;1m  fi[0m
+2025-05-12T14:18:28.4853619Z [36;1melse[0m
+2025-05-12T14:18:28.4854550Z [36;1m  echo "No new IDs were assigned in this run."[0m
+2025-05-12T14:18:28.4855680Z [36;1mfi[0m
+2025-05-12T14:18:28.4856583Z [36;1mecho "============================================"[0m
+2025-05-12T14:18:28.4882446Z shell: /usr/bin/bash -e {0}
+2025-05-12T14:18:28.4883553Z ##[endgroup]
+2025-05-12T14:18:28.4935139Z ============================================
+2025-05-12T14:18:28.4936664Z ASSIGNING IDS TO NEW DRAWIO FILES
+2025-05-12T14:18:28.4937801Z ============================================
+2025-05-12T14:18:28.4978802Z Current last assigned ID from counter is: 0
+2025-05-12T14:18:28.4998919Z Standard push detected. Scanning for .drawio files added in this push.
+2025-05-12T14:18:28.5020258Z No new .drawio files found to process for ID assignment.
+2025-05-12T14:18:28.5021926Z No new IDs were assigned in this run.
+2025-05-12T14:18:28.5023953Z ============================================
