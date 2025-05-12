@@ -179,8 +179,21 @@ jobs:
           
           # Verify installations
           echo "Installed versions:"
-          if command -v Xvfb &> /dev/null; then echo "Xvfb found: $(Xvfb -version)"; else echo "Xvfb NOT found."; fi
-          if command -v drawio &> /dev/null; then echo "drawio command found."; drawio --version; else echo "drawio command NOT found. This could indicate an issue with the installation."; fi
+          if command -v Xvfb &> /dev/null; then 
+            echo "Xvfb found. Attempting to get version..."
+            # Try Xvfb -V, redirect stderr to stdout as version info often goes there
+            Xvfb -V 2>&1 || echo "Xvfb -V failed, checking package version:" $(dpkg -s xvfb 2>/dev/null | grep Version || echo "dpkg query failed")
+          else 
+            echo "Xvfb NOT found."
+          fi
+          
+          if command -v drawio &> /dev/null; then 
+            echo "drawio command found. Attempting to get version using xvfb-run..."
+            # Run drawio --version within xvfb-run to provide a virtual display
+            xvfb-run --auto-servernum --server-args="-screen 0 1024x768x24" drawio --version || echo "drawio --version failed even with xvfb-run"
+          else 
+            echo "drawio command NOT found. This could indicate an issue with the installation."
+          fi
           echo "============================================"
 
       # Step 3: Convert Draw.io files to HTML and SVG
