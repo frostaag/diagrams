@@ -156,25 +156,31 @@ jobs:
       - name: Install dependencies
         run: |
           echo "============================================"
-          echo "INSTALLING DEPENDENCIES"
+          echo "INSTALLING DRAW.IO AND DEPENDENCIES"
           echo "============================================"
-          # Install Xvfb for headless display
           sudo apt-get update
-          sudo apt-get install -y xvfb
+          # Essential dependencies for drawio-desktop on Ubuntu Noble (24.04)
+          # xvfb is for headless operation.
+          # libasound2t64 and others are runtime dependencies for drawio.
+          sudo apt-get install -y wget xvfb libasound2t64 libgbm1 libnspr4 libnss3 libxss1
           
-          # Install Node.js (required for drawio-cli)
-          curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
-          sudo apt-get install -y nodejs
+          # Download and install drawio-desktop
+          # Using v26.2.2 as it was mentioned previously and is a known version.
+          DRAWIO_VERSION_TAG="v26.2.2"
+          DRAWIO_VERSION_FILE="26.2.2"
+          DRAWIO_DEB_URL="https://github.com/jgraph/drawio-desktop/releases/download/${DRAWIO_VERSION_TAG}/drawio-amd64-${DRAWIO_VERSION_FILE}.deb"
+
+          echo "Downloading Draw.io Desktop from ${DRAWIO_DEB_URL}"
+          wget -O drawio-desktop.deb "${DRAWIO_DEB_URL}"
           
-          # Install drawio-cli globally
-          sudo npm install -g drawio-cli
+          echo "Installing Draw.io Desktop..."
+          # Using apt to install the local .deb file handles dependencies automatically.
+          sudo apt-get install -y ./drawio-desktop.deb
           
           # Verify installations
           echo "Installed versions:"
-          echo "Xvfb: $(Xvfb -version)"
-          echo "Node.js: $(node -v)"
-          echo "NPM: $(npm -v)"
-          echo "drawio-cli: $(drawio --version)"
+          if command -v Xvfb &> /dev/null; then echo "Xvfb found: $(Xvfb -version)"; else echo "Xvfb NOT found."; fi
+          if command -v drawio &> /dev/null; then echo "drawio command found."; drawio --version; else echo "drawio command NOT found. This could indicate an issue with the installation."; fi
           echo "============================================"
 
       # Step 3: Convert Draw.io files to HTML and SVG
