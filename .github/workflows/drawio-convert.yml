@@ -50,103 +50,142 @@ jobs:
           git diff --name-only HEAD~5 HEAD 2>/dev/null || echo "Cannot get recent changes"
           echo "============================================"
 
-      # Step 2: Install dependencies
-      - name: Install Draw.io and dependencies
+      - name: Assign IDs to New Drawio Files
         run: |
-          sudo apt-get update
-          # Use libasound2t64 instead of libasound2 for Ubuntu Noble (24.04)
-          sudo apt-get install -y wget unzip xvfb libasound2t64 libgbm1 libnspr4 libnss3 libxss1
-          wget https://github.com/jgraph/drawio-desktop/releases/download/v26.2.2/drawio-amd64-26.2.2.deb
-          sudo apt-get -f install -y
-          sudo dpkg -i drawio-amd64-26.2.2.deb || sudo apt-get -f install -y
-          
-      # Step 1.2: Ensure directories exist
-      - name: Create required directories
-        run: |
-          mkdir -p drawio_files svg_files html_files
-          echo "Created necessary directories"
+          echo "============================================"
+          echo "ASSIGNING IDS TO NEW DRAWIO FILES"
+          echo "============================================"
+          git config --local user.name "github-actions[bot]"
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
 
-      # Step 2.5: Add .drawio extension to files without extension
-      - name: Add .drawio extension to files without extension
-        run: |
-          # Check if drawio_files directory exists
-          if [ -d "drawio_files" ]; then
-            echo "Checking for files without extension in drawio_files directory..."
-            
-            # First, make sure we have the latest changes from remote
-            echo "Fetching latest changes from remote repository..."
-            git fetch "https://${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
-            
-            # Find files without extension in drawio_files directory
-            # Use find command with null separator to handle filenames with spaces
-            find drawio_files -type f -not -path "*/\.*" -print0 | while IFS= read -r -d $'\0' file; do
-              # Check if filename contains a dot (which indicates an extension)
-              filename=$(basename "$file")
-              if [[ "$filename" != *.* ]]; then
-                # Check if the file actually exists before trying to rename it
-                if [ -f "$file" ]; then
-                  echo "Adding .drawio extension to: $file"
-                  
-                  # Check if target file already exists (in case we've already renamed it)
-                  if [ -f "${file}.drawio" ]; then
-                    echo "Warning: ${file}.drawio already exists. Skipping rename."
-                  else
-                    # Check if file is a drawing
-                    file_type=$(file -b "$file" | grep -i "xml" || echo "")
-                    if [[ -n "$file_type" || $(head -c 100 "$file" | grep -q "mxfile") ]]; then
-                      echo "File appears to be a draw.io diagram. Renaming..."
-                      # Rename the file
-                      mv "$file" "${file}.drawio"
-                      
-                      # Add and commit the renamed file
-                      git add "${file}.drawio"
-                      # Also remove the original file if git still tracks it
-                      git rm --ignore-unmatch "$file" > /dev/null 2>&1
-                      
-                      git config --local user.name "github-actions[bot]"
-                      git config --local user.email "github-actions[bot]@users.noreply.github.com"
-                      git commit -m "Add .drawio extension to $filename"
-                      
-                      # Push changes immediately to avoid conflicts
-                      echo "Pushing changes to remote repository..."
-                      git push "https://${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" HEAD:${GITHUB_REF#refs/heads/}
-                    fi
-                  fi
-                else
-                  echo "Warning: File $file no longer exists, skipping."
-                fi
+          ID_COUNTER_FILE="drawio_files/.id_counter"
+          NEW_IDS_WERE_ASSIGNED=false
+
+          # Initialize counter file if it doesn't exist
+          if [ ! -f "$ID_COUNTER_FILE" ]; then
+            echo "Initializing ID counter file: $ID_COUNTER_FILE"
+            # Ensure the directory exists before trying to create the file
+            mkdir -p "$(dirname "$ID_COUNTER_FILE")"
+            echo "0" > "$ID_COUNTER_FILE"
+            git add "$ID_COUNTER_FILE" # Stage it if newly created
+          fi
+
+          CURRENT_ID=$(cat "$ID_COUNTER_FILE")
+          echo "Current last assigned ID from counter is: $CURRENT_ID"
+
+          # Determine files to process
+          FILES_TO_PROCESS=()
+          # Check if HEAD^ exists (i.e., not the initial commit)
+          if git rev-parse --quiet --verify HEAD^ > /dev/null 2>&1; then
+            echo "Standard push detected. Scanning for .drawio files added in this push."
+            # Get files added (A) in the commit, looking only in drawio_files/ and for .drawio extensions
+            # Using a loop to correctly handle filenames with spaces
+            while IFS= read -r file; do
+              if [[ "$file" == drawio_files/* ]] && [[ "$file" == *.drawio ]]; then
+                FILES_TO_PROCESS+=("$file")
+              fi
+            done < <(git diff --name-only --diff-filter=A HEAD^ HEAD -- 'drawio_files/**/*.drawio')
+          else
+            echo "Initial commit or no parent commit found. Scanning all .drawio files in drawio_files/."
+            # Find all .drawio files in the drawio_files directory, null-terminated for safety
+            while IFS= read -r -d $'\\0' file; do
+              FILES_TO_PROCESS+=("$file")
+            done < <(find drawio_files -type f -name "*.drawio" -print0)
+          fi
+
+          if [ ${#FILES_TO_PROCESS[@]} -eq 0 ]; then
+            echo "No new .drawio files found to process for ID assignment."
+          else
+            echo "Found ${#FILES_TO_PROCESS[@]} potential new .drawio file(s) to process:"
+            printf "%s\\n" "${FILES_TO_PROCESS[@]}"
+
+            for file_path in "${FILES_TO_PROCESS[@]}"; do
+              # Double check if the file actually exists before processing
+              if [ ! -f "$file_path" ]; then
+                echo "File '$file_path' listed but not found on disk. Skipping."
+                continue
+              fi
+
+              original_basename=$(basename "$file_path" .drawio)
+              file_dir=$(dirname "$file_path")
+
+              # Check if filename already contains the ID pattern " (xxx)" at the end (before .drawio)
+              # Regex: space, opening parenthesis, three digits, closing parenthesis, end of string.
+              if ! [[ "$original_basename" =~ \ \([0-9]{3}\)$ ]]; then
+                CURRENT_ID=$((CURRENT_ID + 1))
+                FORMATTED_ID=$(printf "%03d" "$CURRENT_ID")
+                
+                new_filename_base="${original_basename} (${FORMATTED_ID})"
+                new_filepath="${file_dir}/${new_filename_base}.drawio"
+
+                echo "Assigning ID ${FORMATTED_ID} to '$file_path' -> '$new_filepath'"
+                git mv "$file_path" "$new_filepath"
+                # git add "$new_filepath" # git mv already stages the change
+                NEW_IDS_WERE_ASSIGNED=true
+              else
+                echo "File '$file_path' (basename: '$original_basename') already has an ID pattern. Skipping."
               fi
             done
-          else
-            echo "drawio_files directory not found, skipping extension check."
-          fi          # Step 3: Create output directories
-      - name: Create output folders
-        run: |
-          mkdir -p svg_files html_files
-          
-          # Initialize CSV changelog with headers if it doesn't exist - now with commit hash column
-          if [ ! -f "html_files/CHANGELOG.csv" ]; then
-            echo "Date,Time,User,Diagram,Action,File,Commit Message,Version,Commit Hash" > html_files/CHANGELOG.csv
           fi
-          # No longer creating changelog in svg_files folder
 
-      # Step 4: Convert .drawio files to SVG and wrap them in HTML
-      - name: Convert Draw.io files
-        run: |
-          # Set up virtual display for headless operation
-          mkdir -p /tmp/.X11-unix
-          Xvfb :99 -screen 0 1280x1024x24 -nolisten tcp -ac +extension RANDR +render -noreset &
-          XVFB_PID=$!
-          export DISPLAY=:99
-          sleep 2 # Give Xvfb time to start
-          
-          # Verify Xvfb is running
-          if ! ps -p $XVFB_PID > /dev/null; then
-            echo "⚠️ Xvfb failed to start, trying alternative configuration..."
-            xvfb-run --auto-servernum --server-args="-screen 0 1280x1024x24" echo "Testing Xvfb" || echo "Warning: xvfb-run test failed but continuing"
+          if [ "$NEW_IDS_WERE_ASSIGNED" = true ]; then
+            echo "New IDs were assigned. Updating counter to $CURRENT_ID and committing changes."
+            echo "$CURRENT_ID" > "$ID_COUNTER_FILE"
+            git add "$ID_COUNTER_FILE"
+            
+            echo "Staging status after ID assignment:"
+            git status # For logging
+            
+            # Check if there are changes to commit (counter or renamed files)
+            if ! git diff --staged --quiet; then
+              echo "Committing ID assignments and counter update..."
+              git commit -m "Chore: Assign IDs to new diagrams and update counter [skip ci]"
+              
+              echo "Pushing ID assignment changes to branch ${{ github.ref_name }}..."
+              # Using GITHUB_TOKEN for push
+              git push "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" HEAD:${{ github.ref_name }}
+            else
+              echo "No changes staged for commit, though NEW_IDS_WERE_ASSIGNED was true. This might indicate an issue or that changes were already committed by another process."
+            fi
           else
-            echo "✅ Xvfb started successfully with PID $XVFB_PID"
+            echo "No new IDs were assigned in this run."
           fi
+          echo "============================================"
+
+      # Step 2: Install dependencies
+      - name: Install dependencies
+        run: |
+          echo "============================================"
+          echo "INSTALLING DEPENDENCIES"
+          echo "============================================"
+          # Install Xvfb for headless display
+          sudo apt-get update
+          sudo apt-get install -y xvfb
+          
+          # Install Node.js (required for drawio-cli)
+          curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+          sudo apt-get install -y nodejs
+          
+          # Install drawio-cli globally
+          sudo npm install -g drawio-cli
+          
+          # Verify installations
+          echo "Installed versions:"
+          echo "Xvfb: $(Xvfb -version)"
+          echo "Node.js: $(node -v)"
+          echo "NPM: $(npm -v)"
+          echo "drawio-cli: $(drawio --version)"
+          echo "============================================"
+
+      # Step 3: Convert Draw.io files to HTML and SVG
+      - name: Convert Draw.io files to HTML and SVG
+        run: |
+          echo "============================================"
+          echo "CONVERTING DRAW.IO FILES TO HTML AND SVG"
+          echo "============================================"
+          
+          # Ensure output directories exist
+          mkdir -p svg_files html_files
           
           # Create a simple converter script
           cat > /tmp/convert-drawio.sh << 'EOL'
@@ -783,7 +822,7 @@ jobs:
           # Send the payload to Teams webhook
           curl -H "Content-Type: application/json" -d "$PAYLOAD" "${{ secrets.TEAMS_WEBHOOK }}"
       # Step 2: Check for file changes
-      - name: Check for changed Draw.io files
+      - name: Check for changed .drawio files
         id: check_files
         run: |
           echo "Checking for changed .drawio files..."
@@ -958,323 +997,50 @@ jobs:
                   existing_base=$(basename "$existing" .drawio)
                   
                   # Pattern 1: X.Y.Z. Name format (with dot)
-                  if [[ "$existing_base" =~ ^${PREFIX}\.([0-9]+)\.\ .* ]]; then
-                    CURRENT_ID="${BASH_REMATCH[1]}"
-                    echo "    ✓ Found ID: $CURRENT_ID (X.Y.Z. format)"
-                    
-                    if [[ "$CURRENT_ID" -gt "$HIGHEST_ID" ]]; then
-                      HIGHEST_ID="$CURRENT_ID"
-                      echo "    → New highest ID: $HIGHEST_ID"
-                    fi
-                    
-                  # Pattern 2: X.Y.Z Name format (without dot)
-                  elif [[ "$existing_base" =~ ^${PREFIX}\.([0-9]+)\ .* ]]; then
-                    CURRENT_ID="${BASH_REMATCH[1]}"
-                    echo "    ✓ Found ID: $CURRENT_ID (X.Y.Z format)"
-                    
-                    if [[ "$CURRENT_ID" -gt "$HIGHEST_ID" ]]; then
-                      HIGHEST_ID="$CURRENT_ID"
-                      echo "    → New highest ID: $HIGHEST_ID"
-                    fi
+                  if [[ "$existing_base" =~ ^${PREFIX}\.([0-9]+)\. ]]; then
+                    ID_PART="${BASH_REMATCH[1]}"
+                    HIGHEST_ID=$((ID_PART > HIGHEST_ID ? ID_PART : HIGHEST_ID))
+                    echo "Found existing diagram with higher ID: $existing_base (ID: $ID_PART)"
+                  fi
+                  
+                  # Pattern 2: X.Y.ZName format (without dot before ID)
+                  if [[ "$existing_base" =~ ^${PREFIX}([0-9]+)$ ]]; then
+                    ID_PART="${BASH_REMATCH[1]}"
+                    HIGHEST_ID=$((ID_PART > HIGHEST_ID ? ID_PART : HIGHEST_ID))
+                    echo "Found existing diagram with higher ID (no dot): $existing_base (ID: $ID_PART)"
                   fi
                 done
                 
-                # Reset shell option
+                # Restore nullglob
                 shopt -u nullglob
                 
-                echo "Highest existing ID found: $HIGHEST_ID"
-                
-                # Handle case where no existing IDs were found - start with 1
-                if [ "$HIGHEST_ID" -eq 0 ]; then
-                  echo "No existing IDs found, starting with ID 1"
-                fi
-                
-                # Calculate next ID
-                NEXT_ID=$((HIGHEST_ID + 1))
-                echo "Next ID: $NEXT_ID"
-              
-              echo "Matched pattern for file needing ID: $file"
-              echo "  Category: $CATEGORY"
-              echo "  Detail: $DETAIL"
-              echo "  Prefix: $PREFIX"
-              echo "  Name: $NAME"
-              
-              echo "Found file with partial ID: $file"
-              echo "Prefix: $PREFIX, Name: $NAME"
-              
-              # Find highest existing ID for this prefix
-              HIGHEST_ID=0
-              echo "Looking for existing diagrams with prefix $PREFIX..."
-              
-              # Safety check to avoid expanding to literal '*' if no files match
-              shopt -s nullglob
-              
-              # Look for files matching the pattern X.Y.Z. format with different variations
-              for existing in drawio_files/*.drawio; do
-                [ -f "$existing" ] || continue
-                
-                existing_base=$(basename "$existing" .drawio)
-                echo "  Checking: $existing_base"
-                
-                # Pattern 1: X.Y.Z. Name format (with dot)
-                if [[ "$existing_base" =~ ^${PREFIX}\.([0-9]+)\.\ .* ]]; then
-                  CURRENT_ID="${BASH_REMATCH[1]}"
-                  echo "    ✓ Found ID: $CURRENT_ID (X.Y.Z. format)"
+                # Assign new ID
+                if [ "$HIGHEST_ID" -gt 0 ]; then
+                  NEW_ID=$((HIGHEST_ID + 1))
+                  echo "Assigning new ID $NEW_ID to $file"
                   
-                  if [[ "$CURRENT_ID" -gt "$HIGHEST_ID" ]]; then
-                    HIGHEST_ID="$CURRENT_ID"
-                    echo "    → New highest ID: $HIGHEST_ID"
-                  fi
+                  # Rename file
+                  NEW_FILENAME="${PREFIX}.${NEW_ID} ${NAME}.drawio"
+                  echo "New filename: $NEW_FILENAME"
                   
-                # Pattern 2: X.Y.Z Name format (without dot)
-                elif [[ "$existing_base" =~ ^${PREFIX}\.([0-9]+)\ .* ]]; then
-                  CURRENT_ID="${BASH_REMATCH[1]}"
-                  echo "    ✓ Found ID: $CURRENT_ID (X.Y.Z format)"
+                  # Perform the rename
+                  git mv "$file" "$(dirname "$file")/$NEW_FILENAME"
                   
-                  if [[ "$CURRENT_ID" -gt "$HIGHEST_ID" ]]; then
-                    HIGHEST_ID="$CURRENT_ID"
-                    echo "    → New highest ID: $HIGHEST_ID"
-                  fi
-                fi
-              done
-              
-              # Reset shell option
-              shopt -u nullglob
-              
-              echo "Highest existing ID found: $HIGHEST_ID"
-              
-              # Handle case where no existing IDs were found - start with 1
-              if [ "$HIGHEST_ID" -eq 0 ]; then
-                echo "No existing IDs found, starting with ID 1"
-              fi
-              
-              # Calculate next ID
-              NEXT_ID=$((HIGHEST_ID + 1))
-              
-              # Generate new filename with proper formatting
-              NEW_NAME="${PREFIX}.${NEXT_ID}. ${NAME}"
-              NEW_PATH="drawio_files/${NEW_NAME}.drawio"
-              
-              echo "Renaming: $file -> $NEW_PATH (next ID: $NEXT_ID)"
-              
-              # Debug - verify files before moving
-              echo "Source file exists: $([ -f "$file" ] && echo "YES" || echo "NO")"
-              echo "Target directory exists: $([ -d "$(dirname "$NEW_PATH")" ] && echo "YES" || echo "NO")"
-              
-              # First make sure the target directory exists
-              mkdir -p $(dirname "$NEW_PATH")
-              
-              # Check if target file already exists (shouldn't happen but just in case)
-              if [ -f "$NEW_PATH" ]; then
-                echo "WARNING: Target file already exists: $NEW_PATH"
-                echo "Will use a unique name to avoid conflicts"
-                NEW_PATH="drawio_files/${PREFIX}.${NEXT_ID}.${RANDOM}. ${NAME}.drawio"
-                echo "New target path: $NEW_PATH"
-              fi
-              
-              # Try to do the actual rename now with multiple fallbacks
-              echo "Attempting to rename file..."
-              if git mv -f "$file" "$NEW_PATH" 2>/dev/null; then
-                echo "✅ Successfully renamed file with git mv"
-              else
-                echo "git mv failed, trying regular mv"
-                if cp "$file" "$NEW_PATH"; then
-                  echo "✅ Successfully copied file, now handling git"
-                  # Now update git
-                  git add "$NEW_PATH"
-                  git rm -f "$file" 2>/dev/null || true
+                  # Add to renamed files list
+                  RENAMED_FILES+=("$NEW_FILENAME")
+                  ID_ASSIGNED=true
                 else
-                  echo "❌ ERROR: Failed to rename file: $file"
-                  continue
+                  echo "No existing ID found, cannot assign new ID"
                 fi
-              fi
-              
-              # Verify the rename was successful
-              if [ -f "$NEW_PATH" ]; then
-                echo "✅ File rename confirmed successful: $NEW_PATH exists"
               else
-                echo "❌ ERROR: Renamed file doesn't exist: $NEW_PATH"
-                continue
+                echo "✗ Prefix part does not match ID pattern or has multiple dots: $PREFIX_PART"
               fi
-              
-              RENAMED_FILES+=("$NEW_PATH")
-              ID_ASSIGNED=true
-              
-              echo "Successfully renamed diagram with next available ID: $NEXT_ID"
+            else
+              echo "✅ File already has ID or does not need ID assignment: $file"
             fi
           done
           
-          # Set outputs
-          if [ "$ID_ASSIGNED" = true ]; then
-            echo "id_assigned=true" >> $GITHUB_OUTPUT
-            echo "renamed_files=${RENAMED_FILES[*]}" >> $GITHUB_OUTPUT
-          fi
-      
-      # Step 3.1: Commit the renamed diagrams if any
-      - name: Commit renamed diagrams
-        id: commit_renamed
-        if: ${{ steps.auto_id.outputs.id_assigned == 'true' }}
-        run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          
-          # Create timestamp for unique commit message
-          TIMESTAMP=$(date +"%Y%m%d%H%M%S")
-          
-          echo "Preparing to commit renamed files..."
-          
-          # First, let's check the state of the repository
-          echo "Current git status:"
-          git status
-          
-          # Add all potential renamed files
-          git add drawio_files/*.drawio
-          
-          # Check if there are really changes to commit
-          if git diff --staged --quiet; then
-            echo "No changes to commit after renaming."
-            echo "commit_done=false" >> $GITHUB_OUTPUT
-          else
-            echo "Changes detected, committing..."
-            
-            # Create a detailed commit message with the files that were renamed
-            COMMIT_MSG="Auto-assigned IDs to new diagrams [${TIMESTAMP}]"
-            RENAMED_FILES=$(git diff --staged --name-only | grep '\.drawio$' | tr '\n' ' ')
-            
-            if [ -n "$RENAMED_FILES" ]; then
-              COMMIT_MSG="${COMMIT_MSG} - Renamed: ${RENAMED_FILES}"
-            fi
-            
-            # Commit the changes
-            git commit -m "$COMMIT_MSG"
-            echo "commit_done=true" >> $GITHUB_OUTPUT
-            
-            # Push the changes
-            echo "Pushing changes to remote repository..."
-            git push origin HEAD:${GITHUB_REF#refs/heads/}
-            
-            echo "✅ Successfully committed and pushed renamed files"
-          fi
-      # Step 4: Detect and regenerate missing HTML/SVG files
-      - name: Check for missing generated files
-        id: check_missing
-        run: |
-          # Initialize variables to track if missing files were found
-          MISSING_HTML_FILES=false
-          MISSING_SVG_FILES=false
-          MISSING_FILES_LIST=""
-          
-          # Create these directories if they don't exist
-          mkdir -p svg_files html_files
-          
-          echo "Checking for Draw.io files without corresponding HTML or SVG files..."
-          for drawio_file in drawio_files/*.drawio; do
-            # Skip if no files match
-            [ -e "$drawio_file" ] || continue
-            
-            # Get the base name without extension
-            base_name=$(basename "$drawio_file" .drawio)
-            
-            # Check if HTML file exists
-            html_file="html_files/${base_name}.html"
-            if [ ! -f "$html_file" ]; then
-              echo "Missing HTML file for: $drawio_file"
-              MISSING_HTML_FILES=true
-              MISSING_FILES_LIST="${MISSING_FILES_LIST}${base_name} (HTML), "
-            fi
-            
-            # Check if SVG file exists
-            svg_file="svg_files/${base_name}.svg"
-            if [ ! -f "$svg_file" ]; then
-              echo "Missing SVG file for: $drawio_file"
-              MISSING_SVG_FILES=true
-              MISSING_FILES_LIST="${MISSING_FILES_LIST}${base_name} (SVG), "
-            fi
-            
-            # If either file is missing, add the drawio file to the queue for processing
-            if [ ! -f "$html_file" ] || [ ! -f "$svg_file" ]; then
-              echo "$drawio_file" >> /tmp/files_to_process.txt
-            fi
-          done
-          
-          # Trim trailing comma and space
-          MISSING_FILES_LIST="${MISSING_FILES_LIST%, }"
-          
-          # Set outputs for conditional steps
-          if [ "$MISSING_HTML_FILES" = true ] || [ "$MISSING_SVG_FILES" = true ]; then
-            echo "missing_files=true" >> $GITHUB_OUTPUT
-            echo "missing_files_list=$MISSING_FILES_LIST" >> $GITHUB_OUTPUT
-          else
-            echo "missing_files=false" >> $GITHUB_OUTPUT
-          fi
-      
-      # Step 4.1: Process missing files if any
-      - name: Regenerate missing files
-        if: ${{ steps.check_missing.outputs.missing_files == 'true' }}
-        run: |
-          echo "Regenerating missing HTML/SVG files..."
-          
-          # Create a function for processing the diagram files
-          process_missing_diagram() {
-            local file_to_process="$1"
-            echo "===== Processing missing files for: $file_to_process ====="
-            
-            # Get the base filename without extension, preserving spaces
-            local base_name=$(basename "$file_to_process" .drawio)
-            echo "Base name: $base_name"
-            
-            # Output files
-            local output_svg="svg_files/${base_name}.svg"
-            local output_html="html_files/${base_name}.html"
-            
-            # Only regenerate SVG if it's missing
-            if [ ! -f "$output_svg" ]; then
-              echo "Regenerating SVG file..."
-              # Convert to SVG using the standard approach
-              xvfb-run -a drawio -x -f svg -o "$output_svg" "$file_to_process"
-              
-              # Check if conversion succeeded
-              if [ ! -f "$output_svg" ]; then
-                echo "Warning: SVG generation failed for $file_to_process"
-                # Create a placeholder SVG
-                echo '<svg xmlns="http://www.w3.org/2000/svg" width="640" height="480" viewBox="0 0 640 480"><rect width="100%" height="100%" fill="#fff1f1"/><text x="50%" y="50%" font-family="Arial" font-size="16" text-anchor="middle">SVG Regeneration Failed</text><text x="50%" y="50%" font-family="Arial" font-size="12" text-anchor="middle" dy="20">Please update this diagram file</text></svg>' > "$output_svg"
-              fi
-            fi
-            
-            # Only regenerate HTML if it's missing
-            if [ ! -f "$output_html" ]; then
-              echo "Regenerating HTML file..."
-              echo '<!DOCTYPE html>' > "$output_html"
-              echo '<html lang="en">' >> "$output_html"
-              echo '<head>' >> "$output_html"
-              echo '  <meta charset="UTF-8">' >> "$output_html"
-              echo "  <title>${base_name}</title>" >> "$output_html"
-              echo '  <style>' >> "$output_html"
-              echo '    body { margin: 0; padding: 0; }' >> "$output_html"
-              echo '    svg { max-width: 100%; height: auto; display: block; }' >> "$output_html"
-              echo '  </style>' >> "$output_html"
-              echo '</head>' >> "$output_html"
-              echo '<body>' >> "$output_html"
-              
-              # If SVG exists, include it
-              if [ -f "$output_svg" ]; then
-                cat "$output_svg" >> "$output_html"
-              else
-                echo "<p>Error: SVG file not found for ${base_name}</p>" >> "$output_html"
-              fi
-              
-              echo '</body>' >> "$output_html"
-              echo '</html>' >> "$output_html"
-            fi
-            
-            echo "Completed regeneration of missing files for $file_to_process"
-          }
-          
-          # Process each file that has missing HTML or SVG
-          if [ -f "/tmp/files_to_process.txt" ]; then
-            while IFS= read -r file || [ -n "$file" ]; do
-              process_missing_diagram "$file"
-            done < "/tmp/files_to_process.txt"
-          fi
-          
-          echo "Finished regenerating all missing files"
+          # Set output variables
+          echo "id_assigned=$ID_ASSIGNED" >> $GITHUB_OUTPUT
+          echo "renamed_files=$(printf '%s|' "${RENAMED_FILES[@]}")" >> $GITHUB_OUTPUT
+          echo "Processed ${#RENAMED_FILES[@]} files, ID assigned: $ID_ASSIGNED"
