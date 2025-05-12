@@ -86,12 +86,34 @@ jobs:
           # If it's a new branch, github.event.before will be all zeros.
           if [[ "${{ github.event_name }}" == "push" && "${{ github.event.before }}" != "0000000000000000000000000000000000000000" ]]; then
             echo "Push event to existing branch. Scanning for .drawio files added between ${{ github.event.before }} and ${{ github.sha }}."
-            # Get files added (A) in the push range, looking only in drawio_files/ and for .drawio extensions
+            echo "Running command: git diff --name-only --diff-filter=A ${{ github.event.before }} ${{ github.sha }} -- 'drawio_files/**/*.drawio'"
+            
+            TEMP_DIFF_OUTPUT_FILE=$(mktemp)
+            # Ensure git diff command errors are captured if any
+            if ! git diff --name-only --diff-filter=A ${{ github.event.before }} ${{ github.sha }} -- 'drawio_files/**/*.drawio' > "${TEMP_DIFF_OUTPUT_FILE}"; then
+              echo "Error running git diff command. Output was:"
+              cat "${TEMP_DIFF_OUTPUT_FILE}"
+              # Decide if you want to exit or continue with an empty list
+            fi
+            
+            echo "--- Start of git diff output ---"
+            cat "${TEMP_DIFF_OUTPUT_FILE}"
+            echo "--- End of git diff output ---"
+
             while IFS= read -r file; do
-              if [[ "$file" == drawio_files/* ]] && [[ "$file" == *.drawio ]]; then
-                FILES_TO_PROCESS+=("$file")
+              echo "Loop processing line from git diff output: '$file'"
+              if [[ -z "$file" ]]; then
+                echo "Skipping empty line from git diff output."
+                continue
               fi
-            done < <(git diff --name-only --diff-filter=A ${{ github.event.before }} ${{ github.sha }} -- 'drawio_files/**/*.drawio')
+              if [[ "$file" == drawio_files/* ]] && [[ "$file" == *.drawio ]]; then
+                echo "File '$file' matches criteria, adding to FILES_TO_PROCESS."
+                FILES_TO_PROCESS+=("$file")
+              else
+                echo "File '$file' from git diff output does NOT match 'drawio_files/*' and '*.drawio'. This is unexpected if pathspec is correct."
+              fi
+            done < "${TEMP_DIFF_OUTPUT_FILE}"
+            rm -f "${TEMP_DIFF_OUTPUT_FILE}"
           else
             # This handles initial commit to a repo, new branch push, or manual workflow_dispatch.
             if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
@@ -119,6 +141,7 @@ jobs:
             printf "%s\\n" "${FILES_TO_PROCESS[@]}"
 
             for file_path in "${FILES_TO_PROCESS[@]}"; do
+              echo "Processing file_path from FILES_TO_PROCESS array: '$file_path'" # Added log
               # Double check if the file actually exists before processing
               if [ ! -f "$file_path" ]; then
                 echo "File '$file_path' listed but not found on disk. Skipping."
@@ -130,17 +153,37 @@ jobs:
 
               # Check if filename already contains the ID pattern " (xxx)" at the end (before .drawio)
               # Regex: space, opening parenthesis, three digits, closing parenthesis, end of string.
-              if ! [[ "$original_basename" =~ \ \([0-9]{3}\)$ ]]; then
+              if ! [[ "$original_basename" =~ \\ \\([0-9]{3}\\)$ ]]; then
                 CURRENT_ID=$((CURRENT_ID + 1))
                 FORMATTED_ID=$(printf "%03d" "$CURRENT_ID")
                 
                 new_filename_base="${original_basename} (${FORMATTED_ID})"
                 new_filepath="${file_dir}/${new_filename_base}.drawio"
 
-                echo "Assigning ID ${FORMATTED_ID} to '$file_path' -> '$new_filepath'"
-                git mv "$file_path" "$new_filepath"
-                # git add "$new_filepath" # git mv already stages the change
-                NEW_IDS_WERE_ASSIGNED=true
+                echo "Attempting to rename: '$file_path' to '$new_filepath'"
+                if git mv "$file_path" "$new_filepath"; then
+                  echo "SUCCESS: git mv command executed for '$file_path'."
+                  # Verify the move
+                  if [ -f "$new_filepath" ] && [ ! -f "$file_path" ]; then
+                    echo "VERIFIED: '$new_filepath' exists and '$file_path' is removed."
+                    NEW_IDS_WERE_ASSIGNED=true
+                  else
+                    echo "ERROR: Post-mv verification FAILED for '$new_filepath'."
+                    echo "Details: '$new_filepath' exists? $(test -f "$new_filepath" && echo YES || echo NO). '$file_path' exists? $(test -f "$file_path" && echo YES || echo NO)."
+                    # Potentially revert or handle error
+                  fi
+                else
+                  # Log the exit code of git mv if possible, or just that it failed
+                  MV_EXIT_CODE=$?
+                  echo "ERROR: git mv '$file_path' '$new_filepath' FAILED with exit code $MV_EXIT_CODE."
+                  # Check if target already exists, as that's a common reason for mv to fail
+                  if [ -e "$new_filepath" ]; then
+                    echo "DIAGNOSTIC: Target '$new_filepath' already exists on disk."
+                  fi
+                  if [ ! -e "$file_path" ]; then
+                    echo "DIAGNOSTIC: Source '$file_path' does not exist prior to mv command (unexpected)."
+                  fi
+                fi
               else
                 echo "File '$file_path' (basename: '$original_basename') already has an ID pattern. Skipping."
               fi
@@ -162,12 +205,21 @@ jobs:
               
               echo "Pushing ID assignment changes to branch ${{ github.ref_name }}..."
               # Using GITHUB_TOKEN for push
-              git push "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" HEAD:${{ github.ref_name }}
+              if git push "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" HEAD:${{ github.ref_name }}; then
+                echo "Push successful."
+              else
+                echo "::error::Push failed!"
+                # Optionally, exit 1 here if push failure should fail the step
+              fi
               
               echo "Pulling latest changes to sync workspace after ID assignment push..."
-              git pull --rebase "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" ${{ github.ref_name }}
+              if git pull --rebase "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" ${{ github.ref_name }}; then
+                echo "Pull --rebase successful."
+              else
+                echo "::warning::Pull --rebase failed. Workspace might not be fully synced."
+              fi
             else
-              echo "No changes staged for commit, though NEW_IDS_WERE_ASSIGNED was true. This might indicate an issue or that changes were already committed by another process."
+              echo "No changes staged for commit. This is unexpected if NEW_IDS_WERE_ASSIGNED was true ('$NEW_IDS_WERE_ASSIGNED'). Check if files were actually moved and staged."
             fi
           else
             echo "No new IDs were assigned in this run."
