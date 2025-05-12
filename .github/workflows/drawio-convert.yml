@@ -75,22 +75,41 @@ jobs:
 
           # Determine files to process
           FILES_TO_PROCESS=()
-          # Check if HEAD^ exists (i.e., not the initial commit)
-          if git rev-parse --quiet --verify HEAD^ > /dev/null 2>&1; then
-            echo "Standard push detected. Scanning for .drawio files added in this push."
-            # Get files added (A) in the commit, looking only in drawio_files/ and for .drawio extensions
-            # Using a loop to correctly handle filenames with spaces
+          echo "Event name: ${{ github.event_name }}"
+          echo "Ref: ${{ github.ref }}"
+          echo "SHA: ${{ github.sha }}"
+          echo "Before SHA: ${{ github.event.before }}"
+          echo "After SHA: ${{ github.event.after }}" # Same as github.sha for push
+
+          # For push events, github.event.before is the commit before the push
+          # and github.event.after (or github.sha) is the latest commit in the push.
+          # If it's a new branch, github.event.before will be all zeros.
+          if [[ "${{ github.event_name }}" == "push" && "${{ github.event.before }}" != "0000000000000000000000000000000000000000" ]]; then
+            echo "Push event to existing branch. Scanning for .drawio files added between ${{ github.event.before }} and ${{ github.sha }}."
+            # Get files added (A) in the push range, looking only in drawio_files/ and for .drawio extensions
             while IFS= read -r file; do
               if [[ "$file" == drawio_files/* ]] && [[ "$file" == *.drawio ]]; then
                 FILES_TO_PROCESS+=("$file")
               fi
-            done < <(git diff --name-only --diff-filter=A HEAD^ HEAD -- 'drawio_files/**/*.drawio')
+            done < <(git diff --name-only --diff-filter=A ${{ github.event.before }} ${{ github.sha }} -- 'drawio_files/**/*.drawio')
           else
-            echo "Initial commit or no parent commit found. Scanning all .drawio files in drawio_files/."
-            # Find all .drawio files in the drawio_files directory, null-terminated for safety
-            while IFS= read -r -d $'\\0' file; do
-              FILES_TO_PROCESS+=("$file")
-            done < <(find drawio_files -type f -name "*.drawio" -print0)
+            # This handles initial commit to a repo, new branch push, or manual workflow_dispatch.
+            if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+              echo "Workflow dispatch event. Scanning all .drawio files in commit ${{ github.sha }}."
+            elif [[ "${{ github.event.before }}" == "0000000000000000000000000000000000000000" ]]; then
+              # This handles initial commit to a repo or a new branch push
+              echo "New branch push or initial commit. Scanning all .drawio files in commit ${{ github.sha }}."
+            else
+              echo "Unknown scenario or unable to determine diff range. Scanning all .drawio files in commit ${{ github.sha }} as a fallback."
+            fi
+            # List all files in the current commit's tree and filter for .drawio files in drawio_files/
+            # These are considered "new" for ID assignment if they don't have an ID.
+            # The existing ID check `if ! [[ "$original_basename" =~ \\ \\([0-9]{3}\\)$ ]]; then` will prevent re-renaming.
+            while IFS= read -r file; do
+              if [[ "$file" == drawio_files/* ]] && [[ "$file" == *.drawio ]]; then
+                FILES_TO_PROCESS+=("$file")
+              fi
+            done < <(git diff-tree --no-commit-id --name-only -r ${{ github.sha }} -- 'drawio_files/**/*.drawio')
           fi
 
           if [ ${#FILES_TO_PROCESS[@]} -eq 0 ]; then
