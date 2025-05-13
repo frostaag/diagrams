@@ -187,33 +187,41 @@ jobs:
             [ -f "$file_path" ] || continue
             original_basename=$(basename "$file_path" .drawio)
             file_dir=$(dirname "$file_path")
+            # If file already has an ID, skip
             if [[ "$original_basename" =~ \ \([0-9]{3}\)$ ]]; then
               echo "(Fallback) File '$file_path' already has an ID pattern. Skipping."
-            else
-              echo "(Fallback) File '$file_path' does NOT have an ID pattern. Assigning new ID."
-              CURRENT_ID=$((CURRENT_ID + 1))
-              FORMATTED_ID=$(printf "%03d" "$CURRENT_ID")
-              new_filename_base="${original_basename} (${FORMATTED_ID})"
-              new_filepath="${file_dir}/${new_filename_base}.drawio"
-              echo "(Fallback) Attempting to rename: '$file_path' to '$new_filepath'"
-              if git mv "$file_path" "$new_filepath"; then
-                echo "(Fallback) SUCCESS: git mv command executed for '$file_path'."
-                if [ -f "$new_filepath" ] && [ ! -f "$file_path" ]; then
-                  echo "(Fallback) VERIFIED: '$new_filepath' exists and '$file_path' is removed."
-                  NEW_IDS_WERE_ASSIGNED=true
-                else
-                  echo "(Fallback) ERROR: Post-mv verification FAILED for '$new_filepath'."
-                  echo "(Fallback) Details: '$new_filepath' exists? $(test -f "$new_filepath" && echo YES || echo NO). '$file_path' exists? $(test -f "$file_path" && echo YES || echo NO)."
-                fi
+              continue
+            fi
+            # Check if a file with the same base name and an ID already exists
+            base_no_id="$original_basename"
+            existing_with_id=$(find "$file_dir" -maxdepth 1 -type f -name "${base_no_id} (*)*.drawio" | head -n 1)
+            if [ -n "$existing_with_id" ]; then
+              echo "(Fallback) File with base '$base_no_id' already has an ID: $existing_with_id. Skipping assigning a new ID to '$file_path'."
+              continue
+            fi
+            echo "(Fallback) File '$file_path' does NOT have an ID pattern and no existing file with an ID. Assigning new ID."
+            CURRENT_ID=$((CURRENT_ID + 1))
+            FORMATTED_ID=$(printf "%03d" "$CURRENT_ID")
+            new_filename_base="${original_basename} (${FORMATTED_ID})"
+            new_filepath="${file_dir}/${new_filename_base}.drawio"
+            echo "(Fallback) Attempting to rename: '$file_path' to '$new_filepath'"
+            if git mv "$file_path" "$new_filepath"; then
+              echo "(Fallback) SUCCESS: git mv command executed for '$file_path'."
+              if [ -f "$new_filepath" ] && [ ! -f "$file_path" ]; then
+                echo "(Fallback) VERIFIED: '$new_filepath' exists and '$file_path' is removed."
+                NEW_IDS_WERE_ASSIGNED=true
               else
-                MV_EXIT_CODE=$?
-                echo "(Fallback) ERROR: git mv '$file_path' '$new_filepath' FAILED with exit code $MV_EXIT_CODE."
-                if [ -e "$new_filepath" ]; then
-                  echo "(Fallback) DIAGNOSTIC: Target '$new_filepath' already exists on disk."
-                fi
-                if [ ! -e "$file_path" ]; then
-                  echo "(Fallback) DIAGNOSTIC: Source '$file_path' does not exist prior to mv command (unexpected)."
-                fi
+                echo "(Fallback) ERROR: Post-mv verification FAILED for '$new_filepath'."
+                echo "(Fallback) Details: '$new_filepath' exists? $(test -f "$new_filepath" && echo YES || echo NO). '$file_path' exists? $(test -f "$file_path" && echo YES || echo NO)."
+              fi
+            else
+              MV_EXIT_CODE=$?
+              echo "(Fallback) ERROR: git mv '$file_path' '$new_filepath' FAILED with exit code $MV_EXIT_CODE."
+              if [ -e "$new_filepath" ]; then
+                echo "(Fallback) DIAGNOSTIC: Target '$new_filepath' already exists on disk."
+              fi
+              if [ ! -e "$file_path" ]; then
+                echo "(Fallback) DIAGNOSTIC: Source '$file_path' does not exist prior to mv command (unexpected)."
               fi
             fi
           done
