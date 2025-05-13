@@ -358,25 +358,33 @@ jobs:
           > /tmp/processed_files.txt
           > /tmp/failed_files.txt
 
-          # Only process .drawio files that have an ID in the filename (e.g., 'name (001).drawio')
-          find drawio_files -type f -name '* ([0-9][0-9][0-9]).drawio' | sort > /tmp/changed_files.txt
 
-          echo "Files to process (only ID'd .drawio files):"
+          # Only process .drawio files with an ID in the filename that were added or modified in the last commit
+          echo "Detecting changed ID'd .drawio files in the last commit..."
+          # Get list of added or modified .drawio files with an ID in the filename
+          git diff --name-only --diff-filter=AM HEAD^ HEAD -- 'drawio_files/* ([0-9][0-9][0-9]).drawio' | sort > /tmp/changed_files.txt
+
+          # Fallback for initial commit (no HEAD^)
+          if [ ! -s /tmp/changed_files.txt ]; then
+            git diff-tree --no-commit-id --name-only -r HEAD -- 'drawio_files/* ([0-9][0-9][0-9]).drawio' | sort > /tmp/changed_files.txt
+          fi
+
+          echo "Files to process (ID'd .drawio files changed in this commit):"
           cat /tmp/changed_files.txt
-          
+
           # Process each changed file
           while IFS= read -r file || [ -n "$file" ]; do
             if [ -f "$file" ]; then
               echo "Processing: $file"
-              
+
               # Create output directories
               mkdir -p svg_files html_files
-              
+
               # Get base name
               base=$(basename "$file" .drawio)
               output_svg="svg_files/${base}.svg"
               output_html="html_files/${base}.html"
-              
+
               # Convert to SVG (robust quoting)
               echo "Converting to SVG..."
               if /tmp/convert-drawio.sh "$file" "$output_svg"; then
@@ -385,11 +393,11 @@ jobs:
                 echo "❌ Failed to convert: $file"
                 echo "$file" >> /tmp/failed_files.txt
                 # Create a placeholder SVG for failed conversions
-                echo '<svg xmlns="http://www.w3.org/2000/svg" width="640" height="480" viewBox="0 0 640 480">'
-                echo '  <rect width="100%" height="100%" fill="#ffffcc"/>'
-                echo '  <text x="10" y="20" font-family="Arial" font-size="16">Error: Failed to convert diagram</text>'
-                echo '  <text x="10" y="45" font-family="Arial" font-size="12">Please check the file and try again</text>'
-                echo '</svg>' > "$output_svg"
+                echo '<svg xmlns="http://www.w3.org/2000/svg" width="640" height="480" viewBox="0 0 640 480">' > "$output_svg"
+                echo '  <rect width="100%" height="100%" fill="#ffffcc"/>' >> "$output_svg"
+                echo '  <text x="10" y="20" font-family="Arial" font-size="16">Error: Failed to convert diagram</text>' >> "$output_svg"
+                echo '  <text x="10" y="45" font-family="Arial" font-size="12">Please check the file and try again</text>' >> "$output_svg"
+                echo '</svg>' >> "$output_svg"
               fi
 
               # Only create HTML wrapper if SVG exists
@@ -406,8 +414,12 @@ jobs:
                 cat "$output_svg" >> "$output_html"
                 echo '</body>' >> "$output_html"
                 echo '</html>' >> "$output_html"
-                # Add simple changelog entry
-                echo "$(date +"%d.%m.%Y"),$(date +"%H:%M:%S"),\"$base\",\"$file\",\"\",\"$(git log -1 --format="%s" HEAD)\",\"$(git log -1 --format="%h" HEAD)\"" >> html_files/CHANGELOG.csv
+
+                # Add changelog entry for this file only, using the last commit that changed this file
+                # Get the last commit message and hash for this file
+                commit_msg=$(git log -1 --format="%s" -- "$file")
+                commit_hash=$(git log -1 --format="%h" -- "$file")
+                echo "$(date +"%d.%m.%Y"),$(date +"%H:%M:%S"),\"$base\",\"$file\",\"\",\"$commit_msg\",\"$commit_hash\"" >> html_files/CHANGELOG.csv
                 echo "$file" >> /tmp/processed_files.txt
               else
                 echo "❌ SVG output missing for $file, skipping HTML wrapper."
@@ -416,7 +428,7 @@ jobs:
               echo "⚠️ File not found: $file"
             fi
           done < /tmp/changed_files.txt
-          
+
           echo "Process completed."
           echo "Successful conversions: $(wc -l < /tmp/processed_files.txt)"
           echo "Failed conversions: $(wc -l < /tmp/failed_files.txt)"
