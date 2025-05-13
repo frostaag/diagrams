@@ -212,13 +212,14 @@ jobs:
 
               # Check if filename already contains the ID pattern " (xxx)" at the end (before .drawio)
               # Regex: space, opening parenthesis, three digits, closing parenthesis, end of string.
-              if ! [[ "$original_basename" =~ \ \([0-9]{3}\)$ ]]; then
+              if [[ "$original_basename" =~ \ \([0-9]{3}\)$ ]]; then
+                echo "File '$file_path' (basename: '$original_basename') already has an ID pattern. Skipping."
+              else
+                echo "File '$file_path' (basename: '$original_basename') does NOT have an ID pattern. Assigning new ID."
                 CURRENT_ID=$((CURRENT_ID + 1))
                 FORMATTED_ID=$(printf "%03d" "$CURRENT_ID")
-                
                 new_filename_base="${original_basename} (${FORMATTED_ID})"
                 new_filepath="${file_dir}/${new_filename_base}.drawio"
-
                 echo "Attempting to rename: '$file_path' to '$new_filepath'"
                 if git mv "$file_path" "$new_filepath"; then
                   echo "SUCCESS: git mv command executed for '$file_path'."
@@ -232,10 +233,8 @@ jobs:
                     # Potentially revert or handle error
                   fi
                 else
-                  # Log the exit code of git mv if possible, or just that it failed
                   MV_EXIT_CODE=$?
                   echo "ERROR: git mv '$file_path' '$new_filepath' FAILED with exit code $MV_EXIT_CODE."
-                  # Check if target already exists, as that's a common reason for mv to fail
                   if [ -e "$new_filepath" ]; then
                     echo "DIAGNOSTIC: Target '$new_filepath' already exists on disk."
                   fi
@@ -243,8 +242,6 @@ jobs:
                     echo "DIAGNOSTIC: Source '$file_path' does not exist prior to mv command (unexpected)."
                   fi
                 fi
-              else
-                echo "File '$file_path' (basename: '$original_basename') already has an ID pattern. Skipping."
               fi
             done
           fi
