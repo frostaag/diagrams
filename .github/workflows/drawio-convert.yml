@@ -191,16 +191,10 @@ jobs:
           fi
 
           echo "DEBUG: Determining if files need processing. Raw count from array: '${#FILES_TO_PROCESS[@]}'"
-          FILE_COUNT_AS_STRING=$(printf "%s" "${#FILES_TO_PROCESS[@]}" | tr -d '[:space:]')
-          echo "DEBUG: FILE_COUNT_AS_STRING value is [${FILE_COUNT_AS_STRING}]"
-          echo "DEBUG: Hexdump of FILE_COUNT_AS_STRING (should be just 30 for zero):"
-          hexdump -C <<<"$FILE_COUNT_AS_STRING"
-
-          # Using basic POSIX [ ... ] test with 'then' on a new line
-          if [ "$FILE_COUNT_AS_STRING" -eq 0 ]; then
-            echo "No new .drawio files found to process for ID assignment (count was '$FILE_COUNT_AS_STRING')."
+          if (( ${#FILES_TO_PROCESS[@]} == 0 )); then
+            echo "No new .drawio files found to process for ID assignment (count was 0)."
           else
-            echo "Found $FILE_COUNT_AS_STRING potential new .drawio file(s) to process:"
+            echo "Found ${#FILES_TO_PROCESS[@]} potential new .drawio file(s) to process:"
             printf "%s\\n" "${FILES_TO_PROCESS[@]}"
 
             for file_path in "${FILES_TO_PROCESS[@]}"; do
