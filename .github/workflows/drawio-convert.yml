@@ -346,15 +346,11 @@ jobs:
           # Track processed files
           > /tmp/processed_files.txt
           > /tmp/failed_files.txt
-          
-          # Find all .drawio files that changed in this commit
-          git diff --name-only HEAD^ HEAD 2>/dev/null | grep -E "\.drawio$" > /tmp/changed_files.txt || echo "" > /tmp/changed_files.txt
-          if [ ! -s /tmp/changed_files.txt ]; then
-            # If first commit or other issue, get all .drawio files
-            git diff-tree --name-only --no-commit-id --root -r HEAD | grep -E "\.drawio$" > /tmp/changed_files.txt || echo "" > /tmp/changed_files.txt
-          fi
-          
-          echo "Files to process:"
+
+          # Only process .drawio files that have an ID in the filename (e.g., 'name (001).drawio')
+          find drawio_files -type f -name '* ([0-9][0-9][0-9]).drawio' | sort > /tmp/changed_files.txt
+
+          echo "Files to process (only ID'd .drawio files):"
           cat /tmp/changed_files.txt
           
           # Process each changed file
