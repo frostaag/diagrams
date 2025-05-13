@@ -415,11 +415,47 @@ jobs:
                 echo '</body>' >> "$output_html"
                 echo '</html>' >> "$output_html"
 
-                # Add changelog entry for this file only, using the last commit that changed this file
+                # Add changelog entry for this file only, using the correct commit message
                 # Get the last commit message and hash for this file
-                commit_msg=$(git log -1 --format="%s" -- "$file")
                 commit_hash=$(git log -1 --format="%h" -- "$file")
-                echo "$(date +"%d.%m.%Y"),$(date +"%H:%M:%S"),\"$base\",\"$file\",\"\",\"$commit_msg\",\"$commit_hash\"" >> html_files/CHANGELOG.csv
+                commit_msg=$(git log -1 --format="%s" -- "$file")
+
+                # If the last commit message is the ID assignment, try to get the previous commit for the file
+                if [[ "$commit_msg" == "Chore: Assign IDs to new diagrams and update counter [skip ci]" ]]; then
+                  # Try to get the previous commit for this file (before the rename)
+                  prev_commit_hash=$(git log --format="%h" -- "$file" | sed -n '2p')
+                  prev_commit_msg=$(git log --format="%s" -- "$file" | sed -n '2p')
+                  # If found, use it
+                  if [ -n "$prev_commit_msg" ]; then
+                    commit_msg="$prev_commit_msg"
+                    commit_hash="$prev_commit_hash"
+                  fi
+                fi
+
+                # Determine versioning for this file
+                changelog_file="html_files/CHANGELOG.csv"
+                last_version=""
+                if [ -f "$changelog_file" ]; then
+                  # Get the last version for this file from the changelog (search for the file path, get last match)
+                  last_version=$(awk -F',' -v f="$file" 'tolower($4)==tolower(f){print $(NF-1)}' "$changelog_file" | tail -n 1)
+                fi
+                # If no version found, start at 1.0
+                if [[ -z "$last_version" || ! "$last_version" =~ ^[0-9]+\.[0-9]+$ ]]; then
+                  new_version="1.0"
+                else
+                  major=${last_version%%.*}
+                  minor=${last_version##*.}
+                  # Check commit message for major keywords
+                  if echo "$commit_msg" | grep -Eiq '(major|redesign|breaking|release)'; then
+                    major=$((major+1))
+                    minor=0
+                  else
+                    minor=$((minor+1))
+                  fi
+                  new_version="$major.$minor"
+                fi
+
+                echo "$(date +"%d.%m.%Y"),$(date +"%H:%M:%S"),\"$base\",\"$file\",\"\",\"$commit_msg\",$new_version,\"$commit_hash\"" >> html_files/CHANGELOG.csv
                 echo "$file" >> /tmp/processed_files.txt
               else
                 echo "❌ SVG output missing for $file, skipping HTML wrapper."
