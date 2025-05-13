@@ -181,7 +181,7 @@ jobs:
 
           echo "DEBUG: Determining if files need processing. FILES_TO_PROCESS count: ${#FILES_TO_PROCESS[@]}"
           FILE_COUNT=${#FILES_TO_PROCESS[@]}
-          if [ "$FILE_COUNT" -eq 0 ]; then
+          if (( FILE_COUNT == 0 )); then
             echo "No new .drawio files found to process for ID assignment (FILE_COUNT is $FILE_COUNT)."
           else
             echo "Found $FILE_COUNT potential new .drawio file(s) to process:"
