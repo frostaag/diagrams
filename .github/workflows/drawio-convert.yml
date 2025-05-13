@@ -192,6 +192,8 @@ jobs:
 
           echo "DEBUG: Determining if files need processing. Raw count from array: '${#FILES_TO_PROCESS[@]}'"
           FILE_COUNT_AS_STRING="${#FILES_TO_PROCESS[@]}" # Use a new variable name
+          # Remove all whitespace (including newlines) from the count variable
+          FILE_COUNT_AS_STRING=$(echo "$FILE_COUNT_AS_STRING" | tr -d '[:space:]')
           echo "DEBUG: FILE_COUNT_AS_STRING value is [${FILE_COUNT_AS_STRING}]"
           echo "DEBUG: Hexdump of FILE_COUNT_AS_STRING (should be just 30 for zero):"
           hexdump -C <<<"$FILE_COUNT_AS_STRING"
