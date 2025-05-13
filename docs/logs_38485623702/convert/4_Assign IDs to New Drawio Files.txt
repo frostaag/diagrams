@@ -1,0 +1,301 @@
+﻿2025-05-13T09:28:30.3799328Z ##[group]Run set -ex # Enable verbose debugging and exit on error. MUST BE THE FIRST LINE.
+2025-05-13T09:28:30.3801950Z [36;1mset -ex # Enable verbose debugging and exit on error. MUST BE THE FIRST LINE.[0m
+2025-05-13T09:28:30.3803269Z [36;1mecho "============================================"[0m
+2025-05-13T09:28:30.3804405Z [36;1mecho "ASSIGNING IDS TO NEW DRAWIO FILES"[0m
+2025-05-13T09:28:30.3805335Z [36;1mecho "============================================"[0m
+2025-05-13T09:28:30.3806347Z [36;1mgit config --local user.name "github-actions[bot]"[0m
+2025-05-13T09:28:30.3807730Z [36;1mgit config --local user.email "github-actions[bot]@users.noreply.github.com"[0m
+2025-05-13T09:28:30.3808944Z [36;1m[0m
+2025-05-13T09:28:30.3809533Z [36;1mID_COUNTER_FILE="drawio_files/.id_counter"[0m
+2025-05-13T09:28:30.3810382Z [36;1mNEW_IDS_WERE_ASSIGNED=false[0m
+2025-05-13T09:28:30.3811102Z [36;1m[0m
+2025-05-13T09:28:30.3811702Z [36;1m# Initialize counter file if it doesn't exist[0m
+2025-05-13T09:28:30.3812666Z [36;1mif [ ! -f "$ID_COUNTER_FILE" ]; then[0m
+2025-05-13T09:28:30.3813650Z [36;1m  echo "Initializing ID counter file: $ID_COUNTER_FILE"[0m
+2025-05-13T09:28:30.3815158Z [36;1m  # Ensure the directory exists before trying to create the file[0m
+2025-05-13T09:28:30.3816311Z [36;1m  mkdir -p "$(dirname "$ID_COUNTER_FILE")"[0m
+2025-05-13T09:28:30.3817168Z [36;1m  echo "0" > "$ID_COUNTER_FILE"[0m
+2025-05-13T09:28:30.3818093Z [36;1m  git add "$ID_COUNTER_FILE" # Stage it if newly created[0m
+2025-05-13T09:28:30.3818980Z [36;1mfi[0m
+2025-05-13T09:28:30.3819436Z [36;1m[0m
+2025-05-13T09:28:30.3819967Z [36;1mCURRENT_ID=$(cat "$ID_COUNTER_FILE")[0m
+2025-05-13T09:28:30.3821013Z [36;1mecho "Current last assigned ID from counter is: $CURRENT_ID"[0m
+2025-05-13T09:28:30.3821995Z [36;1m[0m
+2025-05-13T09:28:30.3822487Z [36;1m# Determine files to process[0m
+2025-05-13T09:28:30.3823233Z [36;1mFILES_TO_PROCESS=()[0m
+2025-05-13T09:28:30.3823887Z [36;1mecho "Event name: push"[0m
+2025-05-13T09:28:30.3824833Z [36;1mecho "Ref: refs/heads/main"[0m
+2025-05-13T09:28:30.3825715Z [36;1mecho "SHA: 1d443b29185b9419d717a2ea846be1492182295f"[0m
+2025-05-13T09:28:30.3826876Z [36;1mecho "Before SHA: 263582178b7d7aa25f6dfcf98372cf8987f7d01c"[0m
+2025-05-13T09:28:30.3828459Z [36;1mecho "After SHA: 1d443b29185b9419d717a2ea846be1492182295f" # Same as github.sha for push[0m
+2025-05-13T09:28:30.3829770Z [36;1m[0m
+2025-05-13T09:28:30.3830290Z [36;1m# Refactored conditional logic[0m
+2025-05-13T09:28:30.3831050Z [36;1mif [[ "push" == "push" ]]; then[0m
+2025-05-13T09:28:30.3831795Z [36;1m  echo "Event is PUSH."[0m
+2025-05-13T09:28:30.3833157Z [36;1m  if [[ "263582178b7d7aa25f6dfcf98372cf8987f7d01c" != "0000000000000000000000000000000000000000" ]]; then[0m
+2025-05-13T09:28:30.3834736Z [36;1m    # Push to an existing branch[0m
+2025-05-13T09:28:30.3836904Z [36;1m    echo "Push event to existing branch. Scanning for .drawio files added between 263582178b7d7aa25f6dfcf98372cf8987f7d01c and 1d443b29185b9419d717a2ea846be1492182295f."[0m
+2025-05-13T09:28:30.3840626Z [36;1m    echo "Running command: git diff --name-only --diff-filter=A 263582178b7d7aa25f6dfcf98372cf8987f7d01c 1d443b29185b9419d717a2ea846be1492182295f -- 'drawio_files/**/*.drawio'"[0m
+2025-05-13T09:28:30.3842891Z [36;1m    [0m
+2025-05-13T09:28:30.3843444Z [36;1m    TEMP_DIFF_OUTPUT_FILE=$(mktemp)[0m
+2025-05-13T09:28:30.3844624Z [36;1m    if [ -z "$TEMP_DIFF_OUTPUT_FILE" ] || [ ! -f "$TEMP_DIFF_OUTPUT_FILE" ]; then[0m
+2025-05-13T09:28:30.3846330Z [36;1m      echo "::error::Failed to create temporary file with mktemp. Path was: '$TEMP_DIFF_OUTPUT_FILE'"[0m
+2025-05-13T09:28:30.3847681Z [36;1m      exit 1[0m
+2025-05-13T09:28:30.3848214Z [36;1m    fi[0m
+2025-05-13T09:28:30.3848947Z [36;1m    echo "Temporary file created: ${TEMP_DIFF_OUTPUT_FILE}"[0m
+2025-05-13T09:28:30.3849887Z [36;1m    [0m
+2025-05-13T09:28:30.3852272Z [36;1m    if ! git diff --name-only --diff-filter=A 263582178b7d7aa25f6dfcf98372cf8987f7d01c 1d443b29185b9419d717a2ea846be1492182295f -- 'drawio_files/**/*.drawio' > "${TEMP_DIFF_OUTPUT_FILE}"; then[0m
+2025-05-13T09:28:30.3855449Z [36;1m      echo "Warning: git diff command exited with non-zero status. Output (if any) was:"[0m
+2025-05-13T09:28:30.3856737Z [36;1m      cat "${TEMP_DIFF_OUTPUT_FILE}"[0m
+2025-05-13T09:28:30.3857481Z [36;1m    fi[0m
+2025-05-13T09:28:30.3857943Z [36;1m    [0m
+2025-05-13T09:28:30.3858763Z [36;1m    echo "--- Start of git diff output (from ${TEMP_DIFF_OUTPUT_FILE}) ---"[0m
+2025-05-13T09:28:30.3859924Z [36;1m    cat "${TEMP_DIFF_OUTPUT_FILE}"[0m
+2025-05-13T09:28:30.3860977Z [36;1m    echo "--- End of git diff output (from ${TEMP_DIFF_OUTPUT_FILE}) ---"[0m
+2025-05-13T09:28:30.3862273Z [36;1m    echo "Details of temporary file ${TEMP_DIFF_OUTPUT_FILE}:"[0m
+2025-05-13T09:28:30.3863321Z [36;1m    ls -l "${TEMP_DIFF_OUTPUT_FILE}"[0m
+2025-05-13T09:28:30.3864253Z [36;1m[0m
+2025-05-13T09:28:30.3864812Z [36;1m    if [ ! -s "${TEMP_DIFF_OUTPUT_FILE}" ]; then[0m
+2025-05-13T09:28:30.3866343Z [36;1m        echo "Temporary file ${TEMP_DIFF_OUTPUT_FILE} is empty or does not exist. No files to process from diff."[0m
+2025-05-13T09:28:30.3867757Z [36;1m    else[0m
+2025-05-13T09:28:30.3868737Z [36;1m        echo "Temporary file ${TEMP_DIFF_OUTPUT_FILE} is NOT empty. Processing contents."[0m
+2025-05-13T09:28:30.3869965Z [36;1m        LOOP_ITERATIONS=0[0m
+2025-05-13T09:28:30.3870691Z [36;1m        while IFS= read -r file; do [0m
+2025-05-13T09:28:30.3871584Z [36;1m            LOOP_ITERATIONS=$((LOOP_ITERATIONS + 1))[0m
+2025-05-13T09:28:30.3872790Z [36;1m            echo "Loop iteration: $LOOP_ITERATIONS. Raw line read: <<<${file}>>>"[0m
+2025-05-13T09:28:30.3874029Z [36;1m            if [[ -z "$file" ]]; then [0m
+2025-05-13T09:28:30.3875002Z [36;1m                echo "Line read from temp file was empty. Skipping."[0m
+2025-05-13T09:28:30.3875951Z [36;1m                continue[0m
+2025-05-13T09:28:30.3876589Z [36;1m            fi[0m
+2025-05-13T09:28:30.3877272Z [36;1m            echo "Processing file from diff: '$file'"[0m
+2025-05-13T09:28:30.3878305Z [36;1m            if [[ "$file" == drawio_files/* && "$file" == *.drawio ]]; then[0m
+2025-05-13T09:28:30.3879554Z [36;1m                echo "File '$file' matches criteria, adding to FILES_TO_PROCESS."[0m
+2025-05-13T09:28:30.3880645Z [36;1m                FILES_TO_PROCESS+=("$file")[0m
+2025-05-13T09:28:30.3881419Z [36;1m            else[0m
+2025-05-13T09:28:30.3882494Z [36;1m                echo "File '$file' from git diff output does NOT match 'drawio_files/*' and '*.drawio'."[0m
+2025-05-13T09:28:30.3883712Z [36;1m            fi[0m
+2025-05-13T09:28:30.3884433Z [36;1m        done < "${TEMP_DIFF_OUTPUT_FILE}"[0m
+2025-05-13T09:28:30.3885664Z [36;1m        echo "Finished loop over diff output. Total iterations: $LOOP_ITERATIONS."[0m
+2025-05-13T09:28:30.3886792Z [36;1m    fi[0m
+2025-05-13T09:28:30.3887350Z [36;1m    rm -f "${TEMP_DIFF_OUTPUT_FILE}"[0m
+2025-05-13T09:28:30.3888106Z [36;1m  else[0m
+2025-05-13T09:28:30.3888856Z [36;1m    # Push to a new branch or initial commit (for a PUSH event)[0m
+2025-05-13T09:28:30.3891026Z [36;1m    echo "Push event for a new branch or initial commit. Scanning all .drawio files in commit 1d443b29185b9419d717a2ea846be1492182295f using git diff-tree."[0m
+2025-05-13T09:28:30.3893493Z [36;1m    echo "Scanning with git diff-tree for commit 1d443b29185b9419d717a2ea846be1492182295f..."[0m
+2025-05-13T09:28:30.3894863Z [36;1m    TREE_LOOP_ITERATIONS=0[0m
+2025-05-13T09:28:30.3895666Z [36;1m    while IFS= read -r file || [ -n "$file" ]; do[0m
+2025-05-13T09:28:30.3896681Z [36;1m      TREE_LOOP_ITERATIONS=$((TREE_LOOP_ITERATIONS + 1))[0m
+2025-05-13T09:28:30.3898062Z [36;1m      echo "Tree Loop (new branch push): $TREE_LOOP_ITERATIONS. Raw line read: <<<${file}>>>"[0m
+2025-05-13T09:28:30.3899276Z [36;1m      if [[ -z "$file" ]]; then[0m
+2025-05-13T09:28:30.3900465Z [36;1m        echo "Skipping empty line from git diff-tree (new branch push)."[0m
+2025-05-13T09:28:30.3901534Z [36;1m        continue[0m
+2025-05-13T09:28:30.3902194Z [36;1m      fi[0m
+2025-05-13T09:28:30.3902887Z [36;1m      if [[ "$file" == drawio_files/* && "$file" == *.drawio ]]; then[0m
+2025-05-13T09:28:30.3904581Z [36;1m        echo "File '$file' (from tree, new branch push) matches criteria, adding to FILES_TO_PROCESS."[0m
+2025-05-13T09:28:30.3905925Z [36;1m        FILES_TO_PROCESS+=("$file")[0m
+2025-05-13T09:28:30.3906655Z [36;1m      else[0m
+2025-05-13T09:28:30.3907517Z [36;1m        echo "File '$file' (from tree, new branch push) does NOT match criteria."[0m
+2025-05-13T09:28:30.3908566Z [36;1m      fi[0m
+2025-05-13T09:28:30.3909961Z [36;1m    done < <(git diff-tree --no-commit-id --name-only -r 1d443b29185b9419d717a2ea846be1492182295f -- 'drawio_files/**/*.drawio')[0m
+2025-05-13T09:28:30.3912094Z [36;1m    echo "Finished tree loop (new branch push). Total iterations: $TREE_LOOP_ITERATIONS."[0m
+2025-05-13T09:28:30.3913325Z [36;1m  fi[0m
+2025-05-13T09:28:30.3913782Z [36;1melse[0m
+2025-05-13T09:28:30.3914485Z [36;1m  # Not a push event (e.g., workflow_dispatch)[0m
+2025-05-13T09:28:30.3916285Z [36;1m  echo "Event is NOT PUSH (push). Scanning all .drawio files in commit 1d443b29185b9419d717a2ea846be1492182295f using git diff-tree."[0m
+2025-05-13T09:28:30.3918085Z [36;1m  if [[ "push" == "workflow_dispatch" ]]; then[0m
+2025-05-13T09:28:30.3919674Z [36;1m    echo "Workflow dispatch event. Scanning all .drawio files in commit 1d443b29185b9419d717a2ea846be1492182295f."[0m
+2025-05-13T09:28:30.3921153Z [36;1m  else[0m
+2025-05-13T09:28:30.3922666Z [36;1m    echo "Unknown non-push event type (push). Scanning all .drawio files in commit 1d443b29185b9419d717a2ea846be1492182295f as a fallback."[0m
+2025-05-13T09:28:30.3924550Z [36;1m  fi[0m
+2025-05-13T09:28:30.3925572Z [36;1m  echo "Scanning with git diff-tree for commit 1d443b29185b9419d717a2ea846be1492182295f..."[0m
+2025-05-13T09:28:30.3926852Z [36;1m  TREE_LOOP_ITERATIONS=0[0m
+2025-05-13T09:28:30.3927639Z [36;1m  while IFS= read -r file || [ -n "$file" ]; do[0m
+2025-05-13T09:28:30.3928651Z [36;1m    TREE_LOOP_ITERATIONS=$((TREE_LOOP_ITERATIONS + 1))[0m
+2025-05-13T09:28:30.3929941Z [36;1m    echo "Tree Loop (non-push): $TREE_LOOP_ITERATIONS. Raw line read: <<<${file}>>>"[0m
+2025-05-13T09:28:30.3931091Z [36;1m    if [[ -z "$file" ]]; then[0m
+2025-05-13T09:28:30.3932048Z [36;1m      echo "Skipping empty line from git diff-tree (non-push)."[0m
+2025-05-13T09:28:30.3932998Z [36;1m      continue[0m
+2025-05-13T09:28:30.3933537Z [36;1m    fi[0m
+2025-05-13T09:28:30.3934329Z [36;1m    if [[ "$file" == drawio_files/* && "$file" == *.drawio ]]; then[0m
+2025-05-13T09:28:30.3935732Z [36;1m      echo "File '$file' (from tree, non-push) matches criteria, adding to FILES_TO_PROCESS."[0m
+2025-05-13T09:28:30.3936979Z [36;1m      FILES_TO_PROCESS+=("$file")[0m
+2025-05-13T09:28:30.3937679Z [36;1m    else[0m
+2025-05-13T09:28:30.3938471Z [36;1m      echo "File '$file' (from tree, non-push) does NOT match criteria."[0m
+2025-05-13T09:28:30.3939461Z [36;1m    fi[0m
+2025-05-13T09:28:30.3940854Z [36;1m  done < <(git diff-tree --no-commit-id --name-only -r 1d443b29185b9419d717a2ea846be1492182295f -- 'drawio_files/**/*.drawio')[0m
+2025-05-13T09:28:30.3942902Z [36;1m  echo "Finished tree loop (non-push). Total iterations: $TREE_LOOP_ITERATIONS."[0m
+2025-05-13T09:28:30.3944139Z [36;1mfi[0m
+2025-05-13T09:28:30.3944597Z [36;1m[0m
+2025-05-13T09:28:30.3945334Z [36;1m# Assign array length to variable for robust arithmetic checks[0m
+2025-05-13T09:28:30.3946370Z [36;1mFILES_COUNT=${#FILES_TO_PROCESS[@]}[0m
+2025-05-13T09:28:30.3947485Z [36;1mecho "DEBUG: FILES_TO_PROCESS array contents (first 5 elements if any):"[0m
+2025-05-13T09:28:30.3948628Z [36;1mif (( FILES_COUNT > 0 )); then[0m
+2025-05-13T09:28:30.3949461Z [36;1m  printf "'%s'\n" "${FILES_TO_PROCESS[@]:0:5}"[0m
+2025-05-13T09:28:30.3950304Z [36;1m  if (( FILES_COUNT > 5 )); then[0m
+2025-05-13T09:28:30.3951299Z [36;1m    echo "...and $((FILES_COUNT - 5)) more elements."[0m
+2025-05-13T09:28:30.3952136Z [36;1m  fi[0m
+2025-05-13T09:28:30.3952701Z [36;1melse[0m
+2025-05-13T09:28:30.3953259Z [36;1m  echo "(FILES_TO_PROCESS is empty)"[0m
+2025-05-13T09:28:30.3954119Z [36;1mfi[0m
+2025-05-13T09:28:30.3954561Z [36;1m[0m
+2025-05-13T09:28:30.3955568Z [36;1mecho "DEBUG: Determining if files need processing. Raw count from array: '$FILES_COUNT'"[0m
+2025-05-13T09:28:30.3956862Z [36;1mif (( FILES_COUNT == 0 )); then[0m
+2025-05-13T09:28:30.3957960Z [36;1m  echo "No new .drawio files found to process for ID assignment (count was 0)."[0m
+2025-05-13T09:28:30.3959070Z [36;1melse[0m
+2025-05-13T09:28:30.3959891Z [36;1m  echo "Found $FILES_COUNT potential new .drawio file(s) to process:"[0m
+2025-05-13T09:28:30.3961011Z [36;1m  printf "%s\n" "${FILES_TO_PROCESS[@]}"[0m
+2025-05-13T09:28:30.3961760Z [36;1m[0m
+2025-05-13T09:28:30.3962326Z [36;1m  for file_path in "${FILES_TO_PROCESS[@]}"; do[0m
+2025-05-13T09:28:30.3963608Z [36;1m    echo "Processing file_path from FILES_TO_PROCESS array: '$file_path'" # Added log[0m
+2025-05-13T09:28:30.3965154Z [36;1m    # Double check if the file actually exists before processing[0m
+2025-05-13T09:28:30.3966186Z [36;1m    if [ ! -f "$file_path" ]; then[0m
+2025-05-13T09:28:30.3967191Z [36;1m      echo "File '$file_path' listed but not found on disk. Skipping."[0m
+2025-05-13T09:28:30.3968177Z [36;1m      continue[0m
+2025-05-13T09:28:30.3968716Z [36;1m    fi[0m
+2025-05-13T09:28:30.3969180Z [36;1m[0m
+2025-05-13T09:28:30.3969821Z [36;1m    original_basename=$(basename "$file_path" .drawio)[0m
+2025-05-13T09:28:30.3970770Z [36;1m    file_dir=$(dirname "$file_path")[0m
+2025-05-13T09:28:30.3971484Z [36;1m[0m
+2025-05-13T09:28:30.3972458Z [36;1m    # Check if filename already contains the ID pattern " (xxx)" at the end (before .drawio)[0m
+2025-05-13T09:28:30.3974352Z [36;1m    # Regex: space, opening parenthesis, three digits, closing parenthesis, end of string.[0m
+2025-05-13T09:28:30.3975751Z [36;1m    if [[ "$original_basename" =~ \ \([0-9]{3}\)$ ]]; then[0m
+2025-05-13T09:28:30.3977147Z [36;1m      echo "File '$file_path' (basename: '$original_basename') already has an ID pattern. Skipping."[0m
+2025-05-13T09:28:30.3978409Z [36;1m    else[0m
+2025-05-13T09:28:30.3979535Z [36;1m      echo "File '$file_path' (basename: '$original_basename') does NOT have an ID pattern. Assigning new ID."[0m
+2025-05-13T09:28:30.3980931Z [36;1m      CURRENT_ID=$((CURRENT_ID + 1))[0m
+2025-05-13T09:28:30.3981783Z [36;1m      FORMATTED_ID=$(printf "%03d" "$CURRENT_ID")[0m
+2025-05-13T09:28:30.3982842Z [36;1m      new_filename_base="${original_basename} (${FORMATTED_ID})"[0m
+2025-05-13T09:28:30.3984083Z [36;1m      new_filepath="${file_dir}/${new_filename_base}.drawio"[0m
+2025-05-13T09:28:30.3985265Z [36;1m      echo "Attempting to rename: '$file_path' to '$new_filepath'"[0m
+2025-05-13T09:28:30.3986364Z [36;1m      if git mv "$file_path" "$new_filepath"; then[0m
+2025-05-13T09:28:30.3987419Z [36;1m        echo "SUCCESS: git mv command executed for '$file_path'."[0m
+2025-05-13T09:28:30.3988395Z [36;1m        # Verify the move[0m
+2025-05-13T09:28:30.3989224Z [36;1m        if [ -f "$new_filepath" ] && [ ! -f "$file_path" ]; then[0m
+2025-05-13T09:28:30.3990429Z [36;1m          echo "VERIFIED: '$new_filepath' exists and '$file_path' is removed."[0m
+2025-05-13T09:28:30.3991517Z [36;1m          NEW_IDS_WERE_ASSIGNED=true[0m
+2025-05-13T09:28:30.3992252Z [36;1m        else[0m
+2025-05-13T09:28:30.3993060Z [36;1m          echo "ERROR: Post-mv verification FAILED for '$new_filepath'."[0m
+2025-05-13T09:28:30.3995205Z [36;1m          echo "Details: '$new_filepath' exists? $(test -f "$new_filepath" && echo YES || echo NO). '$file_path' exists? $(test -f "$file_path" && echo YES || echo NO)."[0m
+2025-05-13T09:28:30.3997040Z [36;1m          # Potentially revert or handle error[0m
+2025-05-13T09:28:30.3997792Z [36;1m        fi[0m
+2025-05-13T09:28:30.3998410Z [36;1m      else[0m
+2025-05-13T09:28:30.3998926Z [36;1m        MV_EXIT_CODE=$?[0m
+2025-05-13T09:28:30.3999987Z [36;1m        echo "ERROR: git mv '$file_path' '$new_filepath' FAILED with exit code $MV_EXIT_CODE."[0m
+2025-05-13T09:28:30.4001299Z [36;1m        if [ -e "$new_filepath" ]; then[0m
+2025-05-13T09:28:30.4002374Z [36;1m          echo "DIAGNOSTIC: Target '$new_filepath' already exists on disk."[0m
+2025-05-13T09:28:30.4003394Z [36;1m        fi[0m
+2025-05-13T09:28:30.4004056Z [36;1m        if [ ! -e "$file_path" ]; then[0m
+2025-05-13T09:28:30.4005309Z [36;1m          echo "DIAGNOSTIC: Source '$file_path' does not exist prior to mv command (unexpected)."[0m
+2025-05-13T09:28:30.4006520Z [36;1m        fi[0m
+2025-05-13T09:28:30.4007031Z [36;1m      fi[0m
+2025-05-13T09:28:30.4007502Z [36;1m    fi[0m
+2025-05-13T09:28:30.4007976Z [36;1m  done[0m
+2025-05-13T09:28:30.4008439Z [36;1mfi[0m
+2025-05-13T09:28:30.4008879Z [36;1m[0m
+2025-05-13T09:28:30.4009423Z [36;1mif [ "$NEW_IDS_WERE_ASSIGNED" = true ]; then[0m
+2025-05-13T09:28:30.4010695Z [36;1m  echo "New IDs were assigned. Updating counter to $CURRENT_ID and committing changes."[0m
+2025-05-13T09:28:30.4011983Z [36;1m  echo "$CURRENT_ID" > "$ID_COUNTER_FILE"[0m
+2025-05-13T09:28:30.4012762Z [36;1m  git add "$ID_COUNTER_FILE"[0m
+2025-05-13T09:28:30.4013406Z [36;1m  [0m
+2025-05-13T09:28:30.4014067Z [36;1m  echo "Staging status after ID assignment:"[0m
+2025-05-13T09:28:30.4014876Z [36;1m  git status # For logging[0m
+2025-05-13T09:28:30.4015510Z [36;1m  [0m
+2025-05-13T09:28:30.4016258Z [36;1m  # Check if there are changes to commit (counter or renamed files)[0m
+2025-05-13T09:28:30.4017325Z [36;1m  if ! git diff --staged --quiet; then[0m
+2025-05-13T09:28:30.4018312Z [36;1m    echo "Committing ID assignments and counter update..."[0m
+2025-05-13T09:28:30.4019647Z [36;1m    git commit -m "Chore: Assign IDs to new diagrams and update counter [skip ci]"[0m
+2025-05-13T09:28:30.4020753Z [36;1m    [0m
+2025-05-13T09:28:30.4021435Z [36;1m    echo "Pushing ID assignment changes to branch main..."[0m
+2025-05-13T09:28:30.4022395Z [36;1m    # Using GITHUB_TOKEN for push[0m
+2025-05-13T09:28:30.4024594Z [36;1m    if git push "***github.com/frostaag/diagrams.git" HEAD:main; then[0m
+2025-05-13T09:28:30.4025627Z [36;1m      echo "Push successful."[0m
+2025-05-13T09:28:30.4026349Z [36;1m    else[0m
+2025-05-13T09:28:30.4026900Z [36;1m      echo "::error::Push failed!"[0m
+2025-05-13T09:28:30.4027910Z [36;1m      # Optionally, exit 1 here if push failure should fail the step[0m
+2025-05-13T09:28:30.4028891Z [36;1m    fi[0m
+2025-05-13T09:28:30.4029381Z [36;1m    [0m
+2025-05-13T09:28:30.4030286Z [36;1m    echo "Pulling latest changes to sync workspace after ID assignment push..."[0m
+2025-05-13T09:28:30.4032552Z [36;1m    if git pull --rebase "***github.com/frostaag/diagrams.git" main; then[0m
+2025-05-13T09:28:30.4033667Z [36;1m      echo "Pull --rebase successful."[0m
+2025-05-13T09:28:30.4034515Z [36;1m    else[0m
+2025-05-13T09:28:30.4035434Z [36;1m      echo "::warning::Pull --rebase failed. Workspace might not be fully synced."[0m
+2025-05-13T09:28:30.4036533Z [36;1m    fi[0m
+2025-05-13T09:28:30.4037010Z [36;1m  else[0m
+2025-05-13T09:28:30.4038690Z [36;1m    echo "No changes staged for commit. This is unexpected if NEW_IDS_WERE_ASSIGNED was true ('$NEW_IDS_WERE_ASSIGNED'). Check if files were actually moved and staged."[0m
+2025-05-13T09:28:30.4040539Z [36;1m  fi[0m
+2025-05-13T09:28:30.4041003Z [36;1melse[0m
+2025-05-13T09:28:30.4041605Z [36;1m  echo "No new IDs were assigned in this run."[0m
+2025-05-13T09:28:30.4042381Z [36;1mfi[0m
+2025-05-13T09:28:30.4042941Z [36;1mecho "============================================"[0m
+2025-05-13T09:28:30.4070690Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2025-05-13T09:28:30.4071598Z ##[endgroup]
+2025-05-13T09:28:30.4122585Z + echo ============================================
+2025-05-13T09:28:30.4123773Z ============================================
+2025-05-13T09:28:30.4125106Z ASSIGNING IDS TO NEW DRAWIO FILES
+2025-05-13T09:28:30.4125790Z ============================================
+2025-05-13T09:28:30.4126718Z + echo 'ASSIGNING IDS TO NEW DRAWIO FILES'
+2025-05-13T09:28:30.4127478Z + echo ============================================
+2025-05-13T09:28:30.4128336Z + git config --local user.name 'github-actions[bot]'
+2025-05-13T09:28:30.4140591Z + git config --local user.email 'github-actions[bot]@users.noreply.github.com'
+2025-05-13T09:28:30.4158063Z + ID_COUNTER_FILE=drawio_files/.id_counter
+2025-05-13T09:28:30.4159302Z + NEW_IDS_WERE_ASSIGNED=false
+2025-05-13T09:28:30.4160383Z + '[' '!' -f drawio_files/.id_counter ']'
+2025-05-13T09:28:30.4161891Z ++ cat drawio_files/.id_counter
+2025-05-13T09:28:30.4171773Z + CURRENT_ID=0
+2025-05-13T09:28:30.4172817Z + echo 'Current last assigned ID from counter is: 0'
+2025-05-13T09:28:30.4174328Z + FILES_TO_PROCESS=()
+2025-05-13T09:28:30.4174999Z + echo 'Event name: push'
+2025-05-13T09:28:30.4175808Z + echo 'Ref: refs/heads/main'
+2025-05-13T09:28:30.4176970Z + echo 'SHA: 1d443b29185b9419d717a2ea846be1492182295f'
+2025-05-13T09:28:30.4178534Z + echo 'Before SHA: 263582178b7d7aa25f6dfcf98372cf8987f7d01c'
+2025-05-13T09:28:30.4180065Z + echo 'After SHA: 1d443b29185b9419d717a2ea846be1492182295f'
+2025-05-13T09:28:30.4181102Z Current last assigned ID from counter is: 0
+2025-05-13T09:28:30.4181822Z Event name: push
+2025-05-13T09:28:30.4182319Z Ref: refs/heads/main
+2025-05-13T09:28:30.4182903Z SHA: 1d443b29185b9419d717a2ea846be1492182295f
+2025-05-13T09:28:30.4183743Z Before SHA: 263582178b7d7aa25f6dfcf98372cf8987f7d01c
+2025-05-13T09:28:30.4184875Z After SHA: 1d443b29185b9419d717a2ea846be1492182295f
+2025-05-13T09:28:30.4185705Z + [[ push == \p\u\s\h ]]
+2025-05-13T09:28:30.4186286Z + echo 'Event is PUSH.'
+2025-05-13T09:28:30.4187497Z + [[ 263582178b7d7aa25f6dfcf98372cf8987f7d01c != \0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0 ]]
+2025-05-13T09:28:30.4190507Z + echo 'Push event to existing branch. Scanning for .drawio files added between 263582178b7d7aa25f6dfcf98372cf8987f7d01c and 1d443b29185b9419d717a2ea846be1492182295f.'
+2025-05-13T09:28:30.4195634Z + echo 'Running command: git diff --name-only --diff-filter=A 263582178b7d7aa25f6dfcf98372cf8987f7d01c 1d443b29185b9419d717a2ea846be1492182295f -- '\''drawio_files/**/*.drawio'\'''
+2025-05-13T09:28:30.4197855Z ++ mktemp
+2025-05-13T09:28:30.4198301Z Event is PUSH.
+2025-05-13T09:28:30.4200018Z Push event to existing branch. Scanning for .drawio files added between 263582178b7d7aa25f6dfcf98372cf8987f7d01c and 1d443b29185b9419d717a2ea846be1492182295f.
+2025-05-13T09:28:30.4203300Z Running command: git diff --name-only --diff-filter=A 263582178b7d7aa25f6dfcf98372cf8987f7d01c 1d443b29185b9419d717a2ea846be1492182295f -- 'drawio_files/**/*.drawio'
+2025-05-13T09:28:30.4205713Z + TEMP_DIFF_OUTPUT_FILE=/tmp/tmp.U3yhEjFrkf
+2025-05-13T09:28:30.4206475Z + '[' -z /tmp/tmp.U3yhEjFrkf ']'
+2025-05-13T09:28:30.4207185Z + '[' '!' -f /tmp/tmp.U3yhEjFrkf ']'
+2025-05-13T09:28:30.4207999Z + echo 'Temporary file created: /tmp/tmp.U3yhEjFrkf'
+2025-05-13T09:28:30.4210146Z + git diff --name-only --diff-filter=A 263582178b7d7aa25f6dfcf98372cf8987f7d01c 1d443b29185b9419d717a2ea846be1492182295f -- 'drawio_files/**/*.drawio'
+2025-05-13T09:28:30.4213513Z Temporary file created: /tmp/tmp.U3yhEjFrkf
+2025-05-13T09:28:30.4214888Z + echo '--- Start of git diff output (from /tmp/tmp.U3yhEjFrkf) ---'
+2025-05-13T09:28:30.4215824Z + cat /tmp/tmp.U3yhEjFrkf
+2025-05-13T09:28:30.4216562Z --- Start of git diff output (from /tmp/tmp.U3yhEjFrkf) ---
+2025-05-13T09:28:30.4222048Z + echo '--- End of git diff output (from /tmp/tmp.U3yhEjFrkf) ---'
+2025-05-13T09:28:30.4242307Z --- End of git diff output (from /tmp/tmp.U3yhEjFrkf) ---
+2025-05-13T09:28:30.4244178Z + echo 'Details of temporary file /tmp/tmp.U3yhEjFrkf:'
+2025-05-13T09:28:30.4245517Z + ls -l /tmp/tmp.U3yhEjFrkf
+2025-05-13T09:28:30.4246152Z + '[' '!' -s /tmp/tmp.U3yhEjFrkf ']'
+2025-05-13T09:28:30.4247415Z + echo 'Temporary file /tmp/tmp.U3yhEjFrkf is empty or does not exist. No files to process from diff.'
+2025-05-13T09:28:30.4249822Z + rm -f /tmp/tmp.U3yhEjFrkf
+2025-05-13T09:28:30.4251139Z Details of temporary file /tmp/tmp.U3yhEjFrkf:
+2025-05-13T09:28:30.4252634Z -rw------- 1 runner docker 0 May 13 09:28 /tmp/tmp.U3yhEjFrkf
+2025-05-13T09:28:30.4255061Z Temporary file /tmp/tmp.U3yhEjFrkf is empty or does not exist. No files to process from diff.
+2025-05-13T09:28:30.4257226Z + FILES_COUNT=0
+2025-05-13T09:28:30.4258535Z + echo 'DEBUG: FILES_TO_PROCESS array contents (first 5 elements if any):'
+2025-05-13T09:28:30.4260227Z + ((  FILES_COUNT > 0  ))
+2025-05-13T09:28:30.4261241Z + echo '(FILES_TO_PROCESS is empty)'
+2025-05-13T09:28:30.4263102Z + echo 'DEBUG: Determining if files need processing. Raw count from array: '\''0'\'''
+2025-05-13T09:28:30.4265294Z + ((  FILES_COUNT == 0  ))
+2025-05-13T09:28:30.4266892Z + echo 'No new .drawio files found to process for ID assignment (count was 0).'
+2025-05-13T09:28:30.4268725Z + '[' false = true ']'
+2025-05-13T09:28:30.4269776Z + echo 'No new IDs were assigned in this run.'
+2025-05-13T09:28:30.4270822Z + echo ============================================
+2025-05-13T09:28:30.4271804Z DEBUG: FILES_TO_PROCESS array contents (first 5 elements if any):
+2025-05-13T09:28:30.4272754Z (FILES_TO_PROCESS is empty)
+2025-05-13T09:28:30.4273644Z DEBUG: Determining if files need processing. Raw count from array: '0'
+2025-05-13T09:28:30.4275163Z No new .drawio files found to process for ID assignment (count was 0).
+2025-05-13T09:28:30.4276154Z No new IDs were assigned in this run.
+2025-05-13T09:28:30.4276809Z ============================================

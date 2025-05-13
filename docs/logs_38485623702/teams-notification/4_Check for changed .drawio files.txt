@@ -1,0 +1,52 @@
+﻿2025-05-13T09:29:15.8076030Z ##[group]Run echo "Checking for changed .drawio files..."
+2025-05-13T09:29:15.8077776Z [36;1mecho "Checking for changed .drawio files..."[0m
+2025-05-13T09:29:15.8079094Z [36;1m[0m
+2025-05-13T09:29:15.8079934Z [36;1m# Initialize output[0m
+2025-05-13T09:29:15.8081010Z [36;1mCHANGES_DETECTED=false[0m
+2025-05-13T09:29:15.8082074Z [36;1m[0m
+2025-05-13T09:29:15.8083107Z [36;1m# Method 1: Check for changes between HEAD and HEAD^[0m
+2025-05-13T09:29:15.8084637Z [36;1mecho "Trying method 1: git diff HEAD^ HEAD"[0m
+2025-05-13T09:29:15.8086650Z [36;1mif git diff --name-only HEAD^ HEAD 2>/dev/null | grep -q "\.drawio$"; then[0m
+2025-05-13T09:29:15.8088372Z [36;1m  CHANGES_DETECTED=true[0m
+2025-05-13T09:29:15.8089567Z [36;1m  echo "Changes detected using method 1"[0m
+2025-05-13T09:29:15.8090809Z [36;1mfi[0m
+2025-05-13T09:29:15.8091560Z [36;1m[0m
+2025-05-13T09:29:15.8092653Z [36;1m# If method 1 failed, try method 2 (useful for initial commits)[0m
+2025-05-13T09:29:15.8094225Z [36;1mif [ "$CHANGES_DETECTED" = false ]; then[0m
+2025-05-13T09:29:15.8095856Z [36;1m  echo "Trying method 2: git diff-tree (for initial commits)"[0m
+2025-05-13T09:29:15.8098055Z [36;1m  if git diff-tree --no-commit-id --name-only -r HEAD 2>/dev/null | grep -q "\.drawio$"; then[0m
+2025-05-13T09:29:15.8099967Z [36;1m    CHANGES_DETECTED=true[0m
+2025-05-13T09:29:15.8101123Z [36;1m    echo "Changes detected using method 2"[0m
+2025-05-13T09:29:15.8102304Z [36;1m  fi[0m
+2025-05-13T09:29:15.8103039Z [36;1mfi[0m
+2025-05-13T09:29:15.8103758Z [36;1m[0m
+2025-05-13T09:29:15.8105087Z [36;1m# If still no changes detected, try method 3 (list all .drawio files on a new repo)[0m
+2025-05-13T09:29:15.8106976Z [36;1mif [ "$CHANGES_DETECTED" = false ]; then[0m
+2025-05-13T09:29:15.8108525Z [36;1m  echo "Trying method 3: check for existence of any .drawio files"[0m
+2025-05-13T09:29:15.8110458Z [36;1m  if find . -name "*.drawio" -type f 2>/dev/null | grep -q "\.drawio$"; then[0m
+2025-05-13T09:29:15.8112034Z [36;1m    CHANGES_DETECTED=true[0m
+2025-05-13T09:29:15.8113389Z [36;1m    echo "Changes detected using method 3 (found .drawio files)"[0m
+2025-05-13T09:29:15.8114830Z [36;1m  fi[0m
+2025-05-13T09:29:15.8115823Z [36;1mfi[0m
+2025-05-13T09:29:15.8116566Z [36;1m[0m
+2025-05-13T09:29:15.8117290Z [36;1m# Set the output[0m
+2025-05-13T09:29:15.8118281Z [36;1mif [ "$CHANGES_DETECTED" = true ]; then[0m
+2025-05-13T09:29:15.8119597Z [36;1m  echo "files_changed=true" >> $GITHUB_OUTPUT[0m
+2025-05-13T09:29:15.8121158Z [36;1m  echo ".drawio files were changed or found in this commit"[0m
+2025-05-13T09:29:15.8122552Z [36;1m  [0m
+2025-05-13T09:29:15.8123636Z [36;1m  # List the files that were changed/found for better debugging[0m
+2025-05-13T09:29:15.8125178Z [36;1m  echo "Changed or found .drawio files:"[0m
+2025-05-13T09:29:15.8127120Z [36;1m  git diff --name-only HEAD^ HEAD 2>/dev/null | grep "\.drawio$" || \[0m
+2025-05-13T09:29:15.8129281Z [36;1m  git diff-tree --no-commit-id --name-only -r HEAD 2>/dev/null | grep "\.drawio$" || \[0m
+2025-05-13T09:29:15.8131137Z [36;1m  find . -name "*.drawio" -type f | sort[0m
+2025-05-13T09:29:15.8132289Z [36;1melse[0m
+2025-05-13T09:29:15.8133210Z [36;1m  echo "files_changed=false" >> $GITHUB_OUTPUT[0m
+2025-05-13T09:29:15.8134666Z [36;1m  echo "No .drawio files were changed in this commit"[0m
+2025-05-13T09:29:15.8136071Z [36;1mfi[0m
+2025-05-13T09:29:15.8162475Z shell: /usr/bin/bash -e {0}
+2025-05-13T09:29:15.8163451Z ##[endgroup]
+2025-05-13T09:29:15.8217976Z Checking for changed .drawio files...
+2025-05-13T09:29:15.8290089Z Trying method 1: git diff HEAD^ HEAD
+2025-05-13T09:29:15.8291645Z Trying method 2: git diff-tree (for initial commits)
+2025-05-13T09:29:15.8306499Z Trying method 3: check for existence of any .drawio files
+2025-05-13T09:29:15.8325907Z No .drawio files were changed in this commit

@@ -1,0 +1,44 @@
+﻿2025-05-13T09:29:05.7665888Z ##[group]Run # Check if there are merge conflicts
+2025-05-13T09:29:05.7666297Z [36;1m# Check if there are merge conflicts[0m
+2025-05-13T09:29:05.7666641Z [36;1mif git status | grep -q "You have unmerged paths"; then[0m
+2025-05-13T09:29:05.7667041Z [36;1m  echo "Detected merge conflicts. Attempting to resolve..."[0m
+2025-05-13T09:29:05.7667357Z [36;1m  [0m
+2025-05-13T09:29:05.7667768Z [36;1m  # Focus on CHANGELOG.csv which is the most common conflict[0m
+2025-05-13T09:29:05.7668362Z [36;1m  if git status | grep -q "CHANGELOG.csv"; then[0m
+2025-05-13T09:29:05.7668931Z [36;1m    echo "Resolving conflict in CHANGELOG.csv..."[0m
+2025-05-13T09:29:05.7669379Z [36;1m    [0m
+2025-05-13T09:29:05.7669670Z [36;1m    # Get our version (HEAD)[0m
+2025-05-13T09:29:05.7670149Z [36;1m    git show :2:html_files/CHANGELOG.csv > /tmp/ours_changelog.csv[0m
+2025-05-13T09:29:05.7670682Z [36;1m    [0m
+2025-05-13T09:29:05.7671036Z [36;1m    # Get their version (from remote)[0m
+2025-05-13T09:29:05.7671589Z [36;1m    git show :3:html_files/CHANGELOG.csv > /tmp/theirs_changelog.csv[0m
+2025-05-13T09:29:05.7672145Z [36;1m    [0m
+2025-05-13T09:29:05.7672637Z [36;1m    # Combine both files (skip header from the second file)[0m
+2025-05-13T09:29:05.7673391Z [36;1m    head -n 1 /tmp/ours_changelog.csv > /tmp/merged_changelog.csv[0m
+2025-05-13T09:29:05.7685460Z [36;1m    (tail -n +2 /tmp/ours_changelog.csv && tail -n +2 /tmp/theirs_changelog.csv) | sort | uniq >> /tmp/merged_changelog.csv[0m
+2025-05-13T09:29:05.7686140Z [36;1m    [0m
+2025-05-13T09:29:05.7686409Z [36;1m    # Replace the conflicted file with our merged version[0m
+2025-05-13T09:29:05.7686776Z [36;1m    cp /tmp/merged_changelog.csv html_files/CHANGELOG.csv[0m
+2025-05-13T09:29:05.7687083Z [36;1m    [0m
+2025-05-13T09:29:05.7687290Z [36;1m    # Mark the conflict as resolved[0m
+2025-05-13T09:29:05.7687562Z [36;1m    git add html_files/CHANGELOG.csv[0m
+2025-05-13T09:29:05.7687991Z [36;1m    echo "CHANGELOG.csv conflict resolved ***matically."[0m
+2025-05-13T09:29:05.7688628Z [36;1m  else[0m
+2025-05-13T09:29:05.7688903Z [36;1m    echo "Conflicts detected in files other than CHANGELOG.csv."[0m
+2025-05-13T09:29:05.7689338Z [36;1m    echo "Please check the workflow logs and resolve conflicts manually."[0m
+2025-05-13T09:29:05.7689674Z [36;1m    exit 1[0m
+2025-05-13T09:29:05.7689859Z [36;1m  fi[0m
+2025-05-13T09:29:05.7690019Z [36;1m  [0m
+2025-05-13T09:29:05.7690203Z [36;1m  # Continue with the rebase[0m
+2025-05-13T09:29:05.7690462Z [36;1m  if git rebase --continue; then[0m
+2025-05-13T09:29:05.7690802Z [36;1m    echo "Rebase completed successfully after resolving conflicts."[0m
+2025-05-13T09:29:05.7691124Z [36;1m  else[0m
+2025-05-13T09:29:05.7691392Z [36;1m    echo "Could not continue rebase. Please check the repository."[0m
+2025-05-13T09:29:05.7691710Z [36;1m    exit 1[0m
+2025-05-13T09:29:05.7691891Z [36;1m  fi[0m
+2025-05-13T09:29:05.7692050Z [36;1melse[0m
+2025-05-13T09:29:05.7692273Z [36;1m  echo "No merge conflicts detected."[0m
+2025-05-13T09:29:05.7692565Z [36;1mfi[0m
+2025-05-13T09:29:05.7717141Z shell: /usr/bin/bash -e {0}
+2025-05-13T09:29:05.7717386Z ##[endgroup]
+2025-05-13T09:29:05.7793107Z No merge conflicts detected.

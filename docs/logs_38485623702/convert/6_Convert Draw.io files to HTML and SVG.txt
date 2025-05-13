@@ -1,0 +1,147 @@
+﻿2025-05-13T09:29:01.2079435Z ##[group]Run echo "============================================"
+2025-05-13T09:29:01.2079901Z [36;1mecho "============================================"[0m
+2025-05-13T09:29:01.2080232Z [36;1mecho "CONVERTING DRAW.IO FILES TO HTML AND SVG"[0m
+2025-05-13T09:29:01.2080541Z [36;1mecho "============================================"[0m
+2025-05-13T09:29:01.2080811Z [36;1m[0m
+2025-05-13T09:29:01.2081011Z [36;1m# Ensure output directories exist[0m
+2025-05-13T09:29:01.2081479Z [36;1mmkdir -p svg_files html_files[0m
+2025-05-13T09:29:01.2081722Z [36;1m[0m
+2025-05-13T09:29:01.2081912Z [36;1m# Create a simple converter script[0m
+2025-05-13T09:29:01.2082194Z [36;1mcat > /tmp/convert-drawio.sh << 'EOL'[0m
+2025-05-13T09:29:01.2082451Z [36;1m#!/bin/bash[0m
+2025-05-13T09:29:01.2082647Z [36;1minput_file=$1[0m
+2025-05-13T09:29:01.2082852Z [36;1moutput_file=$2[0m
+2025-05-13T09:29:01.2083097Z [36;1mecho "Converting: $input_file to $output_file"[0m
+2025-05-13T09:29:01.2083369Z [36;1m[0m
+2025-05-13T09:29:01.2083584Z [36;1m# Try direct command first[0m
+2025-05-13T09:29:01.2083896Z [36;1mif drawio -x -f svg -o "$output_file" "$input_file"; then[0m
+2025-05-13T09:29:01.2084620Z [36;1m  exit 0[0m
+2025-05-13T09:29:01.2084803Z [36;1mfi[0m
+2025-05-13T09:29:01.2084965Z [36;1m[0m
+2025-05-13T09:29:01.2085156Z [36;1m# Try with xvfb-run as fallback[0m
+2025-05-13T09:29:01.2085763Z [36;1mxvfb-run --***-servernum --server-args="-screen 0 1280x1024x24" drawio -x -f svg -o "$output_file" "$input_file"[0m
+2025-05-13T09:29:01.2086242Z [36;1mEOL[0m
+2025-05-13T09:29:01.2086447Z [36;1mchmod +x /tmp/convert-drawio.sh[0m
+2025-05-13T09:29:01.2086692Z [36;1m[0m
+2025-05-13T09:29:01.2086874Z [36;1m# Track processed files[0m
+2025-05-13T09:29:01.2087116Z [36;1m> /tmp/processed_files.txt[0m
+2025-05-13T09:29:01.2087366Z [36;1m> /tmp/failed_files.txt[0m
+2025-05-13T09:29:01.2087584Z [36;1m[0m
+2025-05-13T09:29:01.2087828Z [36;1m# Find all .drawio files that changed in this commit[0m
+2025-05-13T09:29:01.2088377Z [36;1mgit diff --name-only HEAD^ HEAD 2>/dev/null | grep -E "\.drawio$" > /tmp/changed_files.txt || echo "" > /tmp/changed_files.txt[0m
+2025-05-13T09:29:01.2088890Z [36;1mif [ ! -s /tmp/changed_files.txt ]; then[0m
+2025-05-13T09:29:01.2089224Z [36;1m  # If first commit or other issue, get all .drawio files[0m
+2025-05-13T09:29:01.2089793Z [36;1m  git diff-tree --name-only --no-commit-id --root -r HEAD | grep -E "\.drawio$" > /tmp/changed_files.txt || echo "" > /tmp/changed_files.txt[0m
+2025-05-13T09:29:01.2090292Z [36;1mfi[0m
+2025-05-13T09:29:01.2090462Z [36;1m[0m
+2025-05-13T09:29:01.2090636Z [36;1mecho "Files to process:"[0m
+2025-05-13T09:29:01.2090882Z [36;1mcat /tmp/changed_files.txt[0m
+2025-05-13T09:29:01.2091108Z [36;1m[0m
+2025-05-13T09:29:01.2091286Z [36;1m# Process each changed file[0m
+2025-05-13T09:29:01.2091573Z [36;1mwhile IFS= read -r file || [ -n "$file" ]; do[0m
+2025-05-13T09:29:01.2091856Z [36;1m  if [ -f "$file" ]; then[0m
+2025-05-13T09:29:01.2092094Z [36;1m    echo "Processing: $file"[0m
+2025-05-13T09:29:01.2092320Z [36;1m    [0m
+2025-05-13T09:29:01.2092521Z [36;1m    # Create output directories[0m
+2025-05-13T09:29:01.2092792Z [36;1m    mkdir -p svg_files html_files[0m
+2025-05-13T09:29:01.2093033Z [36;1m    [0m
+2025-05-13T09:29:01.2093214Z [36;1m    # Get base name[0m
+2025-05-13T09:29:01.2093456Z [36;1m    base=$(basename "$file" .drawio)[0m
+2025-05-13T09:29:01.2093737Z [36;1m    output_svg="svg_files/${base}.svg"[0m
+2025-05-13T09:29:01.2094313Z [36;1m    output_html="html_files/${base}.html"[0m
+2025-05-13T09:29:01.2094576Z [36;1m    [0m
+2025-05-13T09:29:01.2094753Z [36;1m    # Convert to SVG[0m
+2025-05-13T09:29:01.2094982Z [36;1m    echo "Converting to SVG..."[0m
+2025-05-13T09:29:01.2095301Z [36;1m    if /tmp/convert-drawio.sh "$file" "$output_svg"; then[0m
+2025-05-13T09:29:01.2095672Z [36;1m      echo "✅ Successfully converted to SVG: $output_svg"[0m
+2025-05-13T09:29:01.2095965Z [36;1m      [0m
+2025-05-13T09:29:01.2096159Z [36;1m      # Create HTML wrapper[0m
+2025-05-13T09:29:01.2096623Z [36;1m      echo "Creating HTML wrapper..."[0m
+2025-05-13T09:29:01.2096880Z [36;1m      echo '<!DOCTYPE html>[0m
+2025-05-13T09:29:01.2097115Z [36;1m<html lang="en">[0m
+2025-05-13T09:29:01.2097316Z [36;1m<head>[0m
+2025-05-13T09:29:01.2097506Z [36;1m  <meta charset="UTF-8">[0m
+2025-05-13T09:29:01.2097746Z [36;1m  <title>'"$base"'</title>[0m
+2025-05-13T09:29:01.2097967Z [36;1m  <style>[0m
+2025-05-13T09:29:01.2098299Z [36;1m    body { margin: 0; padding: 0; }[0m
+2025-05-13T09:29:01.2098638Z [36;1m    svg { max-width: 100%; height: ***; display: block; }[0m
+2025-05-13T09:29:01.2098925Z [36;1m  </style>[0m
+2025-05-13T09:29:01.2099108Z [36;1m</head>[0m
+2025-05-13T09:29:01.2099297Z [36;1m<body>' > "$output_html"[0m
+2025-05-13T09:29:01.2099549Z [36;1m      cat "$output_svg" >> "$output_html"[0m
+2025-05-13T09:29:01.2099812Z [36;1m      echo '</body>[0m
+2025-05-13T09:29:01.2100032Z [36;1m</html>' >> "$output_html"[0m
+2025-05-13T09:29:01.2100251Z [36;1m      [0m
+2025-05-13T09:29:01.2100456Z [36;1m      # Add simple changelog entry[0m
+2025-05-13T09:29:01.2100955Z [36;1m      echo "$(date +"%d.%m.%Y"),$(date +"%H:%M:%S"),\"$base\",\"$file\",\"\",\"$(git log -1 --format="%s" HEAD)\",\"$(git log -1 --format="%h" HEAD)\"" >> html_files/CHANGELOG.csv[0m
+2025-05-13T09:29:01.2101423Z [36;1m      [0m
+2025-05-13T09:29:01.2101631Z [36;1m      echo "$file" >> /tmp/processed_files.txt[0m
+2025-05-13T09:29:01.2101901Z [36;1m    else[0m
+2025-05-13T09:29:01.2102105Z [36;1m      echo "❌ Failed to convert: $file"[0m
+2025-05-13T09:29:01.2102389Z [36;1m      echo "$file" >> /tmp/failed_files.txt[0m
+2025-05-13T09:29:01.2102642Z [36;1m      [0m
+2025-05-13T09:29:01.2102876Z [36;1m      # Create a placeholder SVG for failed conversions[0m
+2025-05-13T09:29:01.2103327Z [36;1m      echo '<svg xmlns="http://www.w3.org/2000/svg" width="640" height="480" viewBox="0 0 640 480">[0m
+2025-05-13T09:29:01.2103772Z [36;1m        <rect width="100%" height="100%" fill="#ffffcc"/>[0m
+2025-05-13T09:29:01.2104497Z [36;1m        <text x="10" y="20" font-family="Arial" font-size="16">Error: Failed to convert diagram</text>[0m
+2025-05-13T09:29:01.2105030Z [36;1m        <text x="10" y="45" font-family="Arial" font-size="12">Please check the file and try again</text>[0m
+2025-05-13T09:29:01.2105437Z [36;1m      </svg>' > "$output_svg"[0m
+2025-05-13T09:29:01.2105677Z [36;1m      [0m
+2025-05-13T09:29:01.2105891Z [36;1m      # Create an error HTML wrapper[0m
+2025-05-13T09:29:01.2106159Z [36;1m      echo '<!DOCTYPE html>[0m
+2025-05-13T09:29:01.2106395Z [36;1m<html lang="en">[0m
+2025-05-13T09:29:01.2106601Z [36;1m<head>[0m
+2025-05-13T09:29:01.2106790Z [36;1m  <meta charset="UTF-8">[0m
+2025-05-13T09:29:01.2107056Z [36;1m  <title>'"$base"' (Conversion Failed)</title>[0m
+2025-05-13T09:29:01.2107322Z [36;1m  <style>[0m
+2025-05-13T09:29:01.2107528Z [36;1m    body { margin: 0; padding: 0; }[0m
+2025-05-13T09:29:01.2107858Z [36;1m    svg { max-width: 100%; height: ***; display: block; }[0m
+2025-05-13T09:29:01.2108184Z [36;1m    .error { color: red; padding: 10px; }[0m
+2025-05-13T09:29:01.2108443Z [36;1m  </style>[0m
+2025-05-13T09:29:01.2108625Z [36;1m</head>[0m
+2025-05-13T09:29:01.2108797Z [36;1m<body>[0m
+2025-05-13T09:29:01.2109148Z [36;1m  <div class="error">Conversion failed - please check the original file</div>' > "$output_html"[0m
+2025-05-13T09:29:01.2109577Z [36;1m      cat "$output_svg" >> "$output_html"[0m
+2025-05-13T09:29:01.2109839Z [36;1m      echo '</body>[0m
+2025-05-13T09:29:01.2110064Z [36;1m</html>' >> "$output_html"[0m
+2025-05-13T09:29:01.2110287Z [36;1m    fi[0m
+2025-05-13T09:29:01.2110453Z [36;1m  else[0m
+2025-05-13T09:29:01.2110647Z [36;1m    echo "⚠️ File not found: $file"[0m
+2025-05-13T09:29:01.2110891Z [36;1m  fi[0m
+2025-05-13T09:29:01.2111082Z [36;1mdone < /tmp/changed_files.txt[0m
+2025-05-13T09:29:01.2111309Z [36;1m[0m
+2025-05-13T09:29:01.2111492Z [36;1mecho "Process completed."[0m
+2025-05-13T09:29:01.2111835Z [36;1mecho "Successful conversions: $(wc -l < /tmp/processed_files.txt)"[0m
+2025-05-13T09:29:01.2112429Z [36;1mecho "Failed conversions: $(wc -l < /tmp/failed_files.txt)"[0m
+2025-05-13T09:29:01.2137983Z shell: /usr/bin/bash -e {0}
+2025-05-13T09:29:01.2138223Z ##[endgroup]
+2025-05-13T09:29:01.2182626Z ============================================
+2025-05-13T09:29:01.2183097Z CONVERTING DRAW.IO FILES TO HTML AND SVG
+2025-05-13T09:29:01.2183500Z ============================================
+2025-05-13T09:29:01.2239477Z Files to process:
+2025-05-13T09:29:01.2248391Z drawio_files/28.drawio
+2025-05-13T09:29:01.2251488Z Processing: drawio_files/28.drawio
+2025-05-13T09:29:01.2275263Z Converting to SVG...
+2025-05-13T09:29:01.2288771Z Converting: drawio_files/28.drawio to svg_files/28.svg
+2025-05-13T09:29:01.8256589Z Checking for beta ***update feature for deb/rpm distributions
+2025-05-13T09:29:01.8262429Z Found package-type: deb
+2025-05-13T09:29:01.8289041Z [2572:0513/092901.828763:ERROR:ozone_platform_x11.cc(246)] Missing X server or $DISPLAY
+2025-05-13T09:29:01.8289975Z [2572:0513/092901.828809:ERROR:env.cc(257)] The platform failed to initialize.  Exiting.
+2025-05-13T09:29:03.4864855Z /tmp/convert-drawio.sh: line 9:  2572 Segmentation fault      (core dumped) drawio -x -f svg -o "$output_file" "$input_file"
+2025-05-13T09:29:04.1584465Z Checking for beta ***update feature for deb/rpm distributions
+2025-05-13T09:29:04.1590342Z Found package-type: deb
+2025-05-13T09:29:04.2163710Z [2617:0513/092904.215505:ERROR:bus.cc(408)] Failed to connect to the bus: Could not parse server address: Unknown address type (examples of valid types are "tcp" and on UNIX "unix")
+2025-05-13T09:29:04.2173207Z [2617:0513/092904.216148:ERROR:bus.cc(408)] Failed to connect to the bus: Could not parse server address: Unknown address type (examples of valid types are "tcp" and on UNIX "unix")
+2025-05-13T09:29:04.2175074Z [2617:0513/092904.216168:ERROR:bus.cc(408)] Failed to connect to the bus: Could not parse server address: Unknown address type (examples of valid types are "tcp" and on UNIX "unix")
+2025-05-13T09:29:04.2176730Z [2617:0513/092904.216181:ERROR:bus.cc(408)] Failed to connect to the bus: Could not parse server address: Unknown address type (examples of valid types are "tcp" and on UNIX "unix")
+2025-05-13T09:29:04.2595790Z [2617:0513/092904.257792:ERROR:bus.cc(408)] Failed to connect to the bus: Could not parse server address: Unknown address type (examples of valid types are "tcp" and on UNIX "unix")
+2025-05-13T09:29:04.2795847Z [2617:0513/092904.279156:ERROR:bus.cc(408)] Failed to connect to the bus: Could not parse server address: Unknown address type (examples of valid types are "tcp" and on UNIX "unix")
+2025-05-13T09:29:04.2837916Z [2617:0513/092904.283605:ERROR:object_proxy.cc(576)] Failed to call method: org.freedesktop.DBus.NameHasOwner: object_path= /org/freedesktop/DBus: unknown error type: 
+2025-05-13T09:29:04.2950705Z [2664:0513/092904.294086:ERROR:viz_main_impl.cc(183)] Exiting GPU process due to errors during initialization
+2025-05-13T09:29:04.3403256Z [2685:0513/092904.339213:ERROR:command_buffer_proxy_impl.cc(125)] ContextResult::kTransientFailure: Failed to send GpuControl.CreateCommandBuffer.
+2025-05-13T09:29:04.7703076Z drawio_files/28.drawio -> svg_files/28.svg
+2025-05-13T09:29:04.8128381Z ✅ Successfully converted to SVG: svg_files/28.svg
+2025-05-13T09:29:04.8134607Z Creating HTML wrapper...
+2025-05-13T09:29:04.8215686Z Process completed.
+2025-05-13T09:29:04.8235337Z Successful conversions: 1
+2025-05-13T09:29:04.8250610Z Failed conversions: 0

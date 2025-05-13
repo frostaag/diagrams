@@ -1,0 +1,69 @@
+﻿2025-05-13T09:28:30.3312194Z ##[group]Run echo "============================================"
+2025-05-13T09:28:30.3313367Z [36;1mecho "============================================"[0m
+2025-05-13T09:28:30.3314539Z [36;1mecho "WORKFLOW DIAGNOSTIC INFORMATION"[0m
+2025-05-13T09:28:30.3315712Z [36;1mecho "============================================"[0m
+2025-05-13T09:28:30.3316662Z [36;1mecho "Repository: frostaag/diagrams"[0m
+2025-05-13T09:28:30.3317477Z [36;1mecho "Branch: main"[0m
+2025-05-13T09:28:30.3318138Z [36;1mecho "Actor: lucasdreger"[0m
+2025-05-13T09:28:30.3318949Z [36;1mecho "Workflow: Convert Draw.io Files"[0m
+2025-05-13T09:28:30.3319790Z [36;1mecho "Event: push"[0m
+2025-05-13T09:28:30.3320660Z [36;1mecho "Commit: 1d443b29185b9419d717a2ea846be1492182295f"[0m
+2025-05-13T09:28:30.3321742Z [36;1mecho "============================================"[0m
+2025-05-13T09:28:30.3322627Z [36;1mecho "LISTING DRAWIO FILES:"[0m
+2025-05-13T09:28:30.3324096Z [36;1mfind drawio_files -name "*.drawio" -type f 2>/dev/null | sort || echo "No .drawio files found"[0m
+2025-05-13T09:28:30.3325620Z [36;1mecho "============================================"[0m
+2025-05-13T09:28:30.3326470Z [36;1mecho "GIT STATUS:"[0m
+2025-05-13T09:28:30.3327136Z [36;1mgit status[0m
+2025-05-13T09:28:30.3327795Z [36;1mecho "============================================"[0m
+2025-05-13T09:28:30.3328687Z [36;1mecho "RECENTLY MODIFIED FILES:"[0m
+2025-05-13T09:28:30.3329926Z [36;1mgit diff --name-only HEAD~5 HEAD 2>/dev/null || echo "Cannot get recent changes"[0m
+2025-05-13T09:28:30.3331271Z [36;1mecho "============================================"[0m
+2025-05-13T09:28:30.3360390Z shell: /usr/bin/bash -e {0}
+2025-05-13T09:28:30.3361256Z ##[endgroup]
+2025-05-13T09:28:30.3438768Z ============================================
+2025-05-13T09:28:30.3439966Z WORKFLOW DIAGNOSTIC INFORMATION
+2025-05-13T09:28:30.3440648Z ============================================
+2025-05-13T09:28:30.3441479Z Repository: frostaag/diagrams
+2025-05-13T09:28:30.3442492Z Branch: main
+2025-05-13T09:28:30.3443289Z Actor: lucasdreger
+2025-05-13T09:28:30.3444346Z Workflow: Convert Draw.io Files
+2025-05-13T09:28:30.3445386Z Event: push
+2025-05-13T09:28:30.3446269Z Commit: 1d443b29185b9419d717a2ea846be1492182295f
+2025-05-13T09:28:30.3447747Z ============================================
+2025-05-13T09:28:30.3448943Z LISTING DRAWIO FILES:
+2025-05-13T09:28:30.3458742Z drawio_files/..1. .drawio
+2025-05-13T09:28:30.3459740Z drawio_files/17.drawio
+2025-05-13T09:28:30.3460488Z drawio_files/18.drawio
+2025-05-13T09:28:30.3461261Z drawio_files/19.drawio
+2025-05-13T09:28:30.3462065Z drawio_files/20.drawio
+2025-05-13T09:28:30.3462626Z drawio_files/21.drawio
+2025-05-13T09:28:30.3463293Z drawio_files/22.drawio
+2025-05-13T09:28:30.3464112Z drawio_files/23.drawio
+2025-05-13T09:28:30.3464716Z drawio_files/24.drawio
+2025-05-13T09:28:30.3465282Z drawio_files/25.drawio
+2025-05-13T09:28:30.3465870Z drawio_files/26.drawio
+2025-05-13T09:28:30.3466437Z drawio_files/27.drawio
+2025-05-13T09:28:30.3466988Z drawio_files/28.drawio
+2025-05-13T09:28:30.3467700Z drawio_files/3.1 SAP Cloud Authentication.drawio
+2025-05-13T09:28:30.3468562Z drawio_files/3.1 Test.drawio
+2025-05-13T09:28:30.3469307Z drawio_files/3.1.1. SAP Cloud Simplified.drawio
+2025-05-13T09:28:30.3470254Z drawio_files/3.1.2. SAP Cloud Simplified.drawio
+2025-05-13T09:28:30.3471130Z drawio_files/Untitled Diagram.drawio
+2025-05-13T09:28:30.3471884Z ============================================
+2025-05-13T09:28:30.3472583Z GIT STATUS:
+2025-05-13T09:28:30.3706338Z On branch main
+2025-05-13T09:28:30.3707246Z Your branch is up to date with 'origin/main'.
+2025-05-13T09:28:30.3707903Z 
+2025-05-13T09:28:30.3708160Z nothing to commit, working tree clean
+2025-05-13T09:28:30.3709246Z ============================================
+2025-05-13T09:28:30.3710463Z RECENTLY MODIFIED FILES:
+2025-05-13T09:28:30.3728871Z .github/workflows/drawio-convert.yml
+2025-05-13T09:28:30.3729883Z drawio_files/26.drawio
+2025-05-13T09:28:30.3730440Z drawio_files/27.drawio
+2025-05-13T09:28:30.3730994Z drawio_files/28.drawio
+2025-05-13T09:28:30.3732290Z html_files/26.html
+2025-05-13T09:28:30.3733063Z html_files/27.html
+2025-05-13T09:28:30.3734260Z html_files/CHANGELOG.csv
+2025-05-13T09:28:30.3735176Z svg_files/26.svg
+2025-05-13T09:28:30.3736228Z svg_files/27.svg
+2025-05-13T09:28:30.3736854Z ============================================
