@@ -220,6 +220,21 @@ jobs:
               if [ -f "$new_filepath" ] && [ ! -f "$file_path" ]; then
                 echo "(Fallback) VERIFIED: '$new_filepath' exists and '$file_path' is removed."
                 NEW_IDS_WERE_ASSIGNED=true
+                # Stage the rename
+                git add "$new_filepath"
+                # Get the last commit message and author for the original file
+                orig_commit_msg=$(git log -1 --format="%s" -- "$file_path")
+                orig_commit_author=$(git log -1 --format="%an <%ae>" -- "$file_path")
+                if [ -z "$orig_commit_msg" ]; then
+                  orig_commit_msg="Chore: Assign IDs to new diagrams and update counter [skip ci]"
+                fi
+                if [ -z "$orig_commit_author" ]; then
+                  orig_commit_author="github-actions[bot] <github-actions[bot]@users.noreply.github.com>"
+                fi
+                # Commit the rename with the original commit message and author
+                GIT_COMMITTER_DATE="$(git log -1 --format='%cI' -- "$file_path" 2>/dev/null || date -Iseconds)" \
+                git commit --author="$orig_commit_author" -m "$orig_commit_msg" --no-verify || \
+                git commit -m "$orig_commit_msg" --no-verify
               else
                 echo "(Fallback) ERROR: Post-mv verification FAILED for '$new_filepath'."
                 echo "(Fallback) Details: '$new_filepath' exists? $(test -f "$new_filepath" && echo YES || echo NO). '$file_path' exists? $(test -f "$file_path" && echo YES || echo NO)."
@@ -247,8 +262,10 @@ jobs:
             # Check if there are changes to commit (counter or renamed files)
             if ! git diff --staged --quiet; then
               echo "Committing ID assignments and counter update..."
-              git commit -m "Chore: Assign IDs to new diagrams and update counter [skip ci]"
-              
+              # Only commit the counter file if there are changes (renames are already committed above)
+              if git diff --cached --name-only | grep -q ".id_counter"; then
+                git commit -m "Chore: Update diagram ID counter [skip ci]"
+              fi
               echo "Pushing ID assignment changes to branch ${{ github.ref_name }}..."
               # Using GITHUB_TOKEN for push
               if git push "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" HEAD:${{ github.ref_name }}; then
@@ -257,7 +274,6 @@ jobs:
                 echo "::error::Push failed!"
                 # Optionally, exit 1 here if push failure should fail the step
               fi
-              
               echo "Pulling latest changes to sync workspace after ID assignment push..."
               if git pull --rebase "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" ${{ github.ref_name }}; then
                 echo "Pull --rebase successful."
