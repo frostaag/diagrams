@@ -419,7 +419,7 @@ jobs:
                 # Get the last commit message and hash for this file
 
                 # Use git log --follow to get the true original commit message and hash (across renames)
-                log_lines=$(git log --follow --format="%s|%h" -- "$file" | head -n 2)
+                log_lines=$(git log --follow --find-renames=40% --format="%s|%h" -- "$file" | head -n 2)
                 commit_msg=""
                 commit_hash=""
                 first_msg=""
@@ -438,6 +438,31 @@ jobs:
                 if [[ "$first_msg" == "Chore: Assign IDs to new diagrams and update counter [skip ci]" && -n "$second_msg" ]]; then
                   commit_msg="$second_msg"
                   commit_hash="$second_hash"
+                elif [[ "$first_msg" == "Chore: Assign IDs to new diagrams and update counter [skip ci]" ]]; then
+                  # Only the ID assignment commit is present, try to find the original file by blob hash
+                  blob_hash=$(git ls-tree HEAD -- "$file" | awk '{print $3}')
+                  if [ -n "$blob_hash" ]; then
+                    # Search previous commit for a .drawio file with the same blob hash
+                    orig_file=$(git ls-tree HEAD^ drawio_files/*.drawio 2>/dev/null | awk -v b="$blob_hash" '$3==b{print $4}' | head -n 1)
+                    if [ -n "$orig_file" ]; then
+                      # Get the commit message for the original file
+                      orig_commit_msg=$(git log -1 --format="%s" -- "$orig_file")
+                      orig_commit_hash=$(git log -1 --format="%h" -- "$orig_file")
+                      if [ -n "$orig_commit_msg" ]; then
+                        commit_msg="$orig_commit_msg"
+                        commit_hash="$orig_commit_hash"
+                      else
+                        commit_msg="$first_msg"
+                        commit_hash="$first_hash"
+                      fi
+                    else
+                      commit_msg="$first_msg"
+                      commit_hash="$first_hash"
+                    fi
+                  else
+                    commit_msg="$first_msg"
+                    commit_hash="$first_hash"
+                  fi
                 else
                   commit_msg="$first_msg"
                   commit_hash="$first_hash"
