@@ -417,19 +417,30 @@ jobs:
 
                 # Add changelog entry for this file only, using the correct commit message
                 # Get the last commit message and hash for this file
-                commit_hash=$(git log -1 --format="%h" -- "$file")
-                commit_msg=$(git log -1 --format="%s" -- "$file")
 
-                # If the last commit message is the ID assignment, try to get the previous commit for the file
-                if [[ "$commit_msg" == "Chore: Assign IDs to new diagrams and update counter [skip ci]" ]]; then
-                  # Try to get the previous commit for this file (before the rename)
-                  prev_commit_hash=$(git log --format="%h" -- "$file" | sed -n '2p')
-                  prev_commit_msg=$(git log --format="%s" -- "$file" | sed -n '2p')
-                  # If found, use it
-                  if [ -n "$prev_commit_msg" ]; then
-                    commit_msg="$prev_commit_msg"
-                    commit_hash="$prev_commit_hash"
-                  fi
+                # Use git log --follow to get the true original commit message and hash (across renames)
+                log_lines=$(git log --follow --format="%s|%h" -- "$file" | head -n 2)
+                commit_msg=""
+                commit_hash=""
+                first_msg=""
+                first_hash=""
+                second_msg=""
+                second_hash=""
+                IFS=$'\n' read -r first second <<< "$log_lines"
+                if [ -n "$first" ]; then
+                  first_msg="${first%|*}"
+                  first_hash="${first##*|}"
+                fi
+                if [ -n "$second" ]; then
+                  second_msg="${second%|*}"
+                  second_hash="${second##*|}"
+                fi
+                if [[ "$first_msg" == "Chore: Assign IDs to new diagrams and update counter [skip ci]" && -n "$second_msg" ]]; then
+                  commit_msg="$second_msg"
+                  commit_hash="$second_hash"
+                else
+                  commit_msg="$first_msg"
+                  commit_hash="$first_hash"
                 fi
 
                 # Determine versioning for this file
