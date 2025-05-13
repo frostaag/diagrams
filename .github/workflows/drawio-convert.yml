@@ -396,7 +396,8 @@ jobs:
           # Fallback: If still no files, process any ID'd .drawio file that does not have a corresponding .html output
           if [ ! -s /tmp/changed_files.txt ]; then
             echo "No changed ID'd .drawio files detected in recent commits. Running fallback: process any ID'd .drawio file missing HTML output."
-            for file in drawio_files/*\ ([0-9][0-9][0-9]).drawio; do
+            shopt -s nullglob
+            for file in drawio_files/*\ \([0-9][0-9][0-9]\).drawio; do
               [ -f "$file" ] || continue
               base=$(basename "$file" .drawio)
               html_file="html_files/${base}.html"
@@ -404,6 +405,7 @@ jobs:
                 echo "$file" >> /tmp/changed_files.txt
               fi
             done
+            shopt -u nullglob
           fi
 
           echo "Files to process (ID'd .drawio files changed in this commit or missing HTML):"
