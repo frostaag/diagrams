@@ -270,6 +270,17 @@ jobs:
           else
             echo "No new IDs were assigned in this run."
           fi
+
+          # Cleanup: Remove any non-ID'd .drawio files that remain (to prevent duplicates)
+          echo "===== Cleanup: Removing any non-ID'd .drawio files remaining in drawio_files/ ====="
+          for file_path in drawio_files/*.drawio; do
+            [ -f "$file_path" ] || continue
+            original_basename=$(basename "$file_path" .drawio)
+            if [[ ! "$original_basename" =~ \ \([0-9]{3}\)$ ]]; then
+              echo "Cleanup: Removing non-ID'd file '$file_path'"
+              git rm -f "$file_path" || rm -f "$file_path"
+            fi
+          done
           echo "============================================"
 
       # Step 2: Install dependencies
