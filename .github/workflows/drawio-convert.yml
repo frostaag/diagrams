@@ -388,11 +388,25 @@ jobs:
           git diff --name-only --diff-filter=AM HEAD^ HEAD -- 'drawio_files/* ([0-9][0-9][0-9]).drawio' | sort > /tmp/changed_files.txt
 
           # Fallback for initial commit (no HEAD^)
+
           if [ ! -s /tmp/changed_files.txt ]; then
             git diff-tree --no-commit-id --name-only -r HEAD -- 'drawio_files/* ([0-9][0-9][0-9]).drawio' | sort > /tmp/changed_files.txt
           fi
 
-          echo "Files to process (ID'd .drawio files changed in this commit):"
+          # Fallback: If still no files, process any ID'd .drawio file that does not have a corresponding .html output
+          if [ ! -s /tmp/changed_files.txt ]; then
+            echo "No changed ID'd .drawio files detected in recent commits. Running fallback: process any ID'd .drawio file missing HTML output."
+            for file in drawio_files/*\ ([0-9][0-9][0-9]).drawio; do
+              [ -f "$file" ] || continue
+              base=$(basename "$file" .drawio)
+              html_file="html_files/${base}.html"
+              if [ ! -f "$html_file" ]; then
+                echo "$file" >> /tmp/changed_files.txt
+              fi
+            done
+          fi
+
+          echo "Files to process (ID'd .drawio files changed in this commit or missing HTML):"
           cat /tmp/changed_files.txt
 
           # Process each changed file
