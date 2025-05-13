@@ -207,6 +207,16 @@ jobs:
             echo "(Fallback) Attempting to rename: '$file_path' to '$new_filepath'"
             if git mv "$file_path" "$new_filepath"; then
               echo "(Fallback) SUCCESS: git mv command executed for '$file_path'."
+              # After git mv, sometimes the original file may still exist due to case-insensitive FS or git quirks. Remove it if present.
+              if [ -f "$file_path" ]; then
+                echo "(Fallback) WARNING: Original file '$file_path' still exists after git mv. Removing it."
+                rm -f "$file_path"
+                if [ ! -f "$file_path" ]; then
+                  echo "(Fallback) VERIFIED: '$file_path' successfully removed after manual rm."
+                else
+                  echo "(Fallback) ERROR: Failed to remove '$file_path' after manual rm."
+                fi
+              fi
               if [ -f "$new_filepath" ] && [ ! -f "$file_path" ]; then
                 echo "(Fallback) VERIFIED: '$new_filepath' exists and '$file_path' is removed."
                 NEW_IDS_WERE_ASSIGNED=true
