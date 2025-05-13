@@ -179,10 +179,12 @@ jobs:
             echo "Finished tree loop (non-push). Total iterations: $TREE_LOOP_ITERATIONS."
           fi
 
-          if [ ${#FILES_TO_PROCESS[@]} -eq 0 ]; then
-            echo "No new .drawio files found to process for ID assignment."
+          echo "DEBUG: Determining if files need processing. FILES_TO_PROCESS count: ${#FILES_TO_PROCESS[@]}"
+          FILE_COUNT=${#FILES_TO_PROCESS[@]}
+          if [ "$FILE_COUNT" -eq 0 ]; then
+            echo "No new .drawio files found to process for ID assignment (FILE_COUNT is $FILE_COUNT)."
           else
-            echo "Found ${#FILES_TO_PROCESS[@]} potential new .drawio file(s) to process:"
+            echo "Found $FILE_COUNT potential new .drawio file(s) to process:"
             printf "%s\\n" "${FILES_TO_PROCESS[@]}"
 
             for file_path in "${FILES_TO_PROCESS[@]}"; do
