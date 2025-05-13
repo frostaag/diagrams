@@ -352,60 +352,40 @@ jobs:
               output_svg="svg_files/${base}.svg"
               output_html="html_files/${base}.html"
               
-              # Convert to SVG
+              # Convert to SVG (robust quoting)
               echo "Converting to SVG..."
               if /tmp/convert-drawio.sh "$file" "$output_svg"; then
                 echo "✅ Successfully converted to SVG: $output_svg"
-                
-                # Create HTML wrapper
-                echo "Creating HTML wrapper..."
-                echo '<!DOCTYPE html>
-          <html lang="en">
-          <head>
-            <meta charset="UTF-8">
-            <title>'"$base"'</title>
-            <style>
-              body { margin: 0; padding: 0; }
-              svg { max-width: 100%; height: auto; display: block; }
-            </style>
-          </head>
-          <body>' > "$output_html"
-                cat "$output_svg" >> "$output_html"
-                echo '</body>
-          </html>' >> "$output_html"
-                
-                # Add simple changelog entry
-                echo "$(date +"%d.%m.%Y"),$(date +"%H:%M:%S"),\"$base\",\"$file\",\"\",\"$(git log -1 --format="%s" HEAD)\",\"$(git log -1 --format="%h" HEAD)\"" >> html_files/CHANGELOG.csv
-                
-                echo "$file" >> /tmp/processed_files.txt
               else
                 echo "❌ Failed to convert: $file"
                 echo "$file" >> /tmp/failed_files.txt
-                
                 # Create a placeholder SVG for failed conversions
-                echo '<svg xmlns="http://www.w3.org/2000/svg" width="640" height="480" viewBox="0 0 640 480">
-                  <rect width="100%" height="100%" fill="#ffffcc"/>
-                  <text x="10" y="20" font-family="Arial" font-size="16">Error: Failed to convert diagram</text>
-                  <text x="10" y="45" font-family="Arial" font-size="12">Please check the file and try again</text>
-                </svg>' > "$output_svg"
-                
-                # Create an error HTML wrapper
-                echo '<!DOCTYPE html>
-          <html lang="en">
-          <head>
-            <meta charset="UTF-8">
-            <title>'"$base"' (Conversion Failed)</title>
-            <style>
-              body { margin: 0; padding: 0; }
-              svg { max-width: 100%; height: auto; display: block; }
-              .error { color: red; padding: 10px; }
-            </style>
-          </head>
-          <body>
-            <div class="error">Conversion failed - please check the original file</div>' > "$output_html"
+                echo '<svg xmlns="http://www.w3.org/2000/svg" width="640" height="480" viewBox="0 0 640 480">'
+                echo '  <rect width="100%" height="100%" fill="#ffffcc"/>'
+                echo '  <text x="10" y="20" font-family="Arial" font-size="16">Error: Failed to convert diagram</text>'
+                echo '  <text x="10" y="45" font-family="Arial" font-size="12">Please check the file and try again</text>'
+                echo '</svg>' > "$output_svg"
+              fi
+
+              # Only create HTML wrapper if SVG exists
+              if [ -f "$output_svg" ]; then
+                echo "Creating HTML wrapper..."
+                echo '<!DOCTYPE html>' > "$output_html"
+                echo '<html lang="en">' >> "$output_html"
+                echo '<head>' >> "$output_html"
+                echo '  <meta charset="UTF-8">' >> "$output_html"
+                echo "  <title>$base</title>" >> "$output_html"
+                echo '  <style>body { margin: 0; padding: 0; } svg { max-width: 100%; height: auto; display: block; }</style>' >> "$output_html"
+                echo '</head>' >> "$output_html"
+                echo '<body>' >> "$output_html"
                 cat "$output_svg" >> "$output_html"
-                echo '</body>
-          </html>' >> "$output_html"
+                echo '</body>' >> "$output_html"
+                echo '</html>' >> "$output_html"
+                # Add simple changelog entry
+                echo "$(date +"%d.%m.%Y"),$(date +"%H:%M:%S"),\"$base\",\"$file\",\"\",\"$(git log -1 --format="%s" HEAD)\",\"$(git log -1 --format="%h" HEAD)\"" >> html_files/CHANGELOG.csv
+                echo "$file" >> /tmp/processed_files.txt
+              else
+                echo "❌ SVG output missing for $file, skipping HTML wrapper."
               fi
             else
               echo "⚠️ File not found: $file"
