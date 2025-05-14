@@ -464,67 +464,45 @@ jobs:
                 echo '</body>' >> "$output_html"
                 echo '</html>' >> "$output_html"
 
-                # Improved: Get the original user commit message for changelog
-                # Get full commit history for the file (message|hash|author|email|date)
-                log_lines=$(git log --follow --find-renames=40% --format="%s|%h|%an|%ae|%cI" -- "$file" | head -n 3)
+                # Get full commit history for the file (message|hash|author|email|date), up to 10 entries
+                log_lines=$(git log --follow --find-renames=40% --format="%s|%h|%an|%ae|%cI" -- "$file" | head -n 10)
                 commit_msg=""
                 commit_hash=""
                 commit_author=""
                 commit_email=""
                 commit_date=""
-                # Parse up to three lines for robust fallback
-                IFS=$'\n' read -r first second third <<< "$log_lines"
-                if [ -n "$first" ]; then
-                  first_msg="${first%%|*}"
-                  first_rest="${first#*|}"
-                  first_hash="${first_rest%%|*}"
-                  first_rest2="${first_rest#*|}"
-                  first_author="${first_rest2%%|*}"
-                  first_rest3="${first_rest2#*|}"
-                  first_email="${first_rest3%%|*}"
-                  first_date="${first_rest3#*|}"
-                fi
-                if [ -n "$second" ]; then
-                  second_msg="${second%%|*}"
-                  second_rest="${second#*|}"
-                  second_hash="${second_rest%%|*}"
-                  second_rest2="${second_rest#*|}"
-                  second_author="${second_rest2%%|*}"
-                  second_rest3="${second_rest2#*|}"
-                  second_email="${second_rest3%%|*}"
-                  second_date="${second_rest3#*|}"
-                fi
-                if [ -n "$third" ]; then
-                  third_msg="${third%%|*}"
-                  third_rest="${third#*|}"
-                  third_hash="${third_rest%%|*}"
-                  third_rest2="${third_rest#*|}"
-                  third_author="${third_rest2%%|*}"
-                  third_rest3="${third_rest2#*|}"
-                  third_email="${third_rest3%%|*}"
-                  third_date="${third_rest3#*|}"
-                fi
-
-                # If the first commit is the auto-ID, use the second (user's original commit)
-                if [[ "$first_msg" == "Chore: Assign IDs to new diagrams and update counter [skip ci]" && -n "$second_msg" ]]; then
-                  commit_msg="$second_msg"
-                  commit_hash="$second_hash"
-                  commit_author="$second_author"
-                  commit_email="$second_email"
-                  commit_date="$second_date"
-                elif [[ "$first_msg" == "Chore: Assign IDs to new diagrams and update counter [skip ci]" && -n "$third_msg" ]]; then
-                  # Fallback: if second is also auto-ID, use third
-                  commit_msg="$third_msg"
-                  commit_hash="$third_hash"
-                  commit_author="$third_author"
-                  commit_email="$third_email"
-                  commit_date="$third_date"
-                else
-                  commit_msg="$first_msg"
-                  commit_hash="$first_hash"
-                  commit_author="$first_author"
-                  commit_email="$first_email"
-                  commit_date="$first_date"
+                # Find the first non-Chore commit in the history
+                while IFS= read -r line; do
+                  msg="${line%%|*}"
+                  rest="${line#*|}"
+                  hash="${rest%%|*}"
+                  rest2="${rest#*|}"
+                  author="${rest2%%|*}"
+                  rest3="${rest2#*|}"
+                  email="${rest3%%|*}"
+                  date="${rest3#*|}"
+                  if [[ "$msg" != "Chore: Assign IDs to new diagrams and update counter [skip ci]" ]]; then
+                    commit_msg="$msg"
+                    commit_hash="$hash"
+                    commit_author="$author"
+                    commit_email="$email"
+                    commit_date="$date"
+                    break
+                  fi
+                done <<< "$log_lines"
+                # If all commits are Chore, fallback to the first one
+                if [ -z "$commit_msg" ]; then
+                  IFS=$'\n' read -r first_line _ <<< "$log_lines"
+                  if [ -n "$first_line" ]; then
+                    commit_msg="${first_line%%|*}"
+                    rest="${first_line#*|}"
+                    commit_hash="${rest%%|*}"
+                    rest2="${rest#*|}"
+                    commit_author="${rest2%%|*}"
+                    rest3="${rest2#*|}"
+                    commit_email="${rest3%%|*}"
+                    commit_date="${rest3#*|}"
+                  fi
                 fi
 
                 # Determine versioning for this file
