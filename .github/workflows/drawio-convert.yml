@@ -602,33 +602,25 @@ jobs:
           # Check if there are merge conflicts
           if git status | grep -q "You have unmerged paths"; then
             echo "Detected merge conflicts. Attempting to resolve..."
-            
-            # Focus on CHANGELOG.csv which is the most common conflict
+
+            # Auto-resolve CHANGELOG.csv
             if git status | grep -q "CHANGELOG.csv"; then
               echo "Resolving conflict in CHANGELOG.csv..."
-              
-              # Get our version (HEAD)
               git show :2:html_files/CHANGELOG.csv > /tmp/ours_changelog.csv
-              
-              # Get their version (from remote)
               git show :3:html_files/CHANGELOG.csv > /tmp/theirs_changelog.csv
-              
-              # Combine both files (skip header from the second file)
               head -n 1 /tmp/ours_changelog.csv > /tmp/merged_changelog.csv
               (tail -n +2 /tmp/ours_changelog.csv && tail -n +2 /tmp/theirs_changelog.csv) | sort | uniq >> /tmp/merged_changelog.csv
-              
-              # Replace the conflicted file with our merged version
               cp /tmp/merged_changelog.csv html_files/CHANGELOG.csv
-              
-              # Mark the conflict as resolved
               git add html_files/CHANGELOG.csv
               echo "CHANGELOG.csv conflict resolved automatically."
-            else
-              echo "Conflicts detected in files other than CHANGELOG.csv."
-              echo "Please check the workflow logs and resolve conflicts manually."
-              exit 1
             fi
-            
+
+            # Auto-resolve .html and .svg conflicts by taking the new generated file
+            for f in $(git status --porcelain | grep '^UU ' | awk '{print $2}' | grep -E '\\.(html|svg)$'); do
+              echo "Auto-resolving $f by taking the new generated file"
+              git add "$f"
+            done
+
             # Continue with the rebase
             if git rebase --continue; then
               echo "Rebase completed successfully after resolving conflicts."
