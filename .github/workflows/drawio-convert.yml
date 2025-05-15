@@ -350,54 +350,49 @@ jobs:
           fi
           echo "============================================"
 
+
       # Step 3: Convert Draw.io files to HTML and SVG
       - name: Convert Draw.io files to HTML and SVG
         run: |
           echo "============================================"
           echo "CONVERTING DRAW.IO FILES TO HTML AND SVG"
           echo "============================================"
-          
+
           # Ensure output directories exist
           mkdir -p svg_files html_files
-          
+
           # Create a simple converter script
           cat > /tmp/convert-drawio.sh << 'EOL'
-          #!/bin/bash
-          input_file=$1
-          output_file=$2
-          echo "Converting: $input_file to $output_file"
-          
-          # Try direct command first
-          if drawio -x -f svg -o "$output_file" "$input_file"; then
-            exit 0
-          fi
-          
-          # Try with xvfb-run as fallback
-          xvfb-run --auto-servernum --server-args="-screen 0 1280x1024x24" drawio -x -f svg -o "$output_file" "$input_file"
-          EOL
+#!/bin/bash
+input_file=$1
+output_file=$2
+echo "Converting: $input_file to $output_file"
+
+# Try direct command first
+if drawio -x -f svg -o "$output_file" "$input_file"; then
+  exit 0
+fi
+
+# Try with xvfb-run as fallback
+xvfb-run --auto-servernum --server-args="-screen 0 1280x1024x24" drawio -x -f svg -o "$output_file" "$input_file"
+EOL
           chmod +x /tmp/convert-drawio.sh
-          
+
           # Track processed files
           > /tmp/processed_files.txt
           > /tmp/failed_files.txt
 
-
           # Only process .drawio files with an ID in the filename that were added or modified in the last commit
+          echo "Detecting changed ID'd .drawio files in the last commit..."
+          # Get list of added or modified .drawio files with an ID in the filename
+          git diff --name-only --diff-filter=AM HEAD^ HEAD -- 'drawio_files/* ([0-9][0-9][0-9]).drawio' | sort > /tmp/changed_files.txt
 
-      echo "Detecting changed ID'd .drawio files in the last commit..."
-      # Get list of added or modified .drawio files with an ID in the filename
-      git diff --name-only --diff-filter=AM HEAD^ HEAD -- 'drawio_files/* ([0-9][0-9][0-9]).drawio' | sort > /tmp/changed_files.txt
-
-      # Fallback for initial commit (no HEAD^)
-      if [ ! -s /tmp/changed_files.txt ]; then
-        git diff-tree --no-commit-id --name-only -r HEAD -- 'drawio_files/* ([0-9][0-9][0-9]).drawio' | sort > /tmp/changed_files.txt
-      fi
-
-      echo "Files to process (ID'd .drawio files changed in this commit):"
-      cat /tmp/changed_files.txt
+          # Fallback for initial commit (no HEAD^)
+          if [ ! -s /tmp/changed_files.txt ]; then
+            git diff-tree --no-commit-id --name-only -r HEAD -- 'drawio_files/* ([0-9][0-9][0-9]).drawio' | sort > /tmp/changed_files.txt
+          fi
 
           # Process each changed file
-
           while IFS= read -r file || [ -n "$file" ]; do
             if [ -f "$file" ]; then
               echo "Processing: $file"
