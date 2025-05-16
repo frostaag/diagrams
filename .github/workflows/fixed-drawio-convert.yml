@@ -1,0 +1,224 @@
+name: Convert Draw.io Files
+
+on:
+  push:
+    paths:
+      - '**/*.drawio'
+      - 'drawio_files/**'
+  workflow_dispatch: # Enable manual triggering
+
+# Add concurrency control to prevent queued workflows and resolve XKEYBOARD issues
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.sha }}
+  cancel-in-progress: false
+
+# Add permissions needed for the workflow
+permissions:
+  contents: write
+
+jobs:
+  convert:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Check out the repository with history to detect changes
+      - name: Check out the repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0 # Fetch all history to properly identify changed files
+          
+      # Step 1.1: Diagnostic information
+      - name: Workflow diagnostic information
+        run: |
+          echo "============================================"
+          echo "WORKFLOW DIAGNOSTIC INFORMATION"
+          echo "============================================"
+          echo "Repository: ${{ github.repository }}"
+          echo "Branch: ${{ github.ref_name }}"
+          echo "Actor: ${{ github.actor }}"
+          echo "Workflow: ${{ github.workflow }}"
+          echo "Event: ${{ github.event_name }}"
+          echo "Commit: ${{ github.sha }}"
+          echo "============================================"
+          echo "LISTING DRAWIO FILES:"
+          find drawio_files -name "*.drawio" -type f 2>/dev/null | sort || echo "No .drawio files found"
+          echo "============================================"
+          echo "GIT STATUS:"
+          git status
+          echo "============================================"
+          echo "RECENTLY MODIFIED FILES:"
+          git diff --name-only HEAD~5 HEAD 2>/dev/null || echo "Cannot get recent changes"
+          echo "============================================"
+
+      - name: Assign IDs to New Drawio Files
+        shell: bash # Explicitly set shell to bash
+        run: |
+          set -ex # Enable verbose debugging and exit on error. MUST BE THE FIRST LINE.
+          echo "============================================"
+          echo "ASSIGNING IDS TO NEW DRAWIO FILES"
+          echo "============================================"
+          git config --local user.name "github-actions[bot]"
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+
+          ID_COUNTER_FILE="drawio_files/.id_counter"
+          NEW_IDS_WERE_ASSIGNED=false
+
+          # Initialize counter file if it doesn't exist
+          if [ ! -f "$ID_COUNTER_FILE" ]; then
+            echo "Initializing ID counter file: $ID_COUNTER_FILE"
+            # Ensure the directory exists before trying to create the file
+            mkdir -p "$(dirname "$ID_COUNTER_FILE")"
+            echo "0" > "$ID_COUNTER_FILE"
+            git add "$ID_COUNTER_FILE" # Stage it if newly created
+          fi
+
+          CURRENT_ID=$(cat "$ID_COUNTER_FILE")
+          echo "Current last assigned ID from counter is: $CURRENT_ID"
+
+          # Determine files to process
+          FILES_TO_PROCESS=()
+          echo "Event name: ${{ github.event_name }}"
+          echo "Ref: ${{ github.ref }}"
+          echo "SHA: ${{ github.sha }}"
+          echo "Before SHA: ${{ github.event.before }}"
+          echo "After SHA: ${{ github.event.after }}" # Same as github.sha for push
+
+          # Refactored conditional logic
+          if [[ "${{ github.event_name }}" == "push" ]]; then
+            echo "Event is PUSH."
+            if [[ "${{ github.event.before }}" != "0000000000000000000000000000000000000000" ]]; then
+              # Push to an existing branch
+              echo "Push event to existing branch. Scanning for .drawio files added between ${{ github.event.before }} and ${{ github.sha }}."
+              echo "Running command: git diff --name-only --diff-filter=A ${{ github.event.before }} ${{ github.sha }} -- 'drawio_files/**/*.drawio'"
+              
+              TEMP_DIFF_OUTPUT_FILE=$(mktemp)
+              if [ -z "$TEMP_DIFF_OUTPUT_FILE" ] || [ ! -f "$TEMP_DIFF_OUTPUT_FILE" ]; then
+                echo "::error::Failed to create temporary file with mktemp. Path was: '$TEMP_DIFF_OUTPUT_FILE'"
+                exit 1
+              fi
+              echo "Temporary file created: ${TEMP_DIFF_OUTPUT_FILE}"
+              
+              if ! git diff --name-only --diff-filter=A ${{ github.event.before }} ${{ github.sha }} -- 'drawio_files/**/*.drawio' > "${TEMP_DIFF_OUTPUT_FILE}"; then
+                echo "Warning: git diff command exited with non-zero status. Output (if any) was:"
+                cat "${TEMP_DIFF_OUTPUT_FILE}"
+              fi
+              
+              echo "--- Start of git diff output (from ${TEMP_DIFF_OUTPUT_FILE}) ---"
+              cat "${TEMP_DIFF_OUTPUT_FILE}"
+              echo "--- End of git diff output (from ${TEMP_DIFF_OUTPUT_FILE}) ---"
+              echo "Details of temporary file ${TEMP_DIFF_OUTPUT_FILE}:"
+              ls -l "${TEMP_DIFF_OUTPUT_FILE}"
+
+              if [ ! -s "${TEMP_DIFF_OUTPUT_FILE}" ]; then
+                  echo "Temporary file ${TEMP_DIFF_OUTPUT_FILE} is empty or does not exist. No files to process from diff."
+              else
+                  echo "Temporary file ${TEMP_DIFF_OUTPUT_FILE} is NOT empty. Processing contents."
+                  LOOP_ITERATIONS=0
+                  while IFS= read -r file; do 
+                      LOOP_ITERATIONS=$((LOOP_ITERATIONS + 1))
+                      echo "Loop iteration: $LOOP_ITERATIONS. Raw line read: <<<${file}>>>"
+                      if [[ -z "$file" ]]; then 
+                          echo "Line read from temp file was empty. Skipping."
+                          continue
+                      fi
+                      echo "Processing file from diff: '$file'"
+                      if [[ "$file" == drawio_files/* && "$file" == *.drawio ]]; then
+                          echo "File '$file' matches criteria, adding to FILES_TO_PROCESS."
+                          FILES_TO_PROCESS+=("$file")
+                      else
+                          echo "File '$file' from git diff output does NOT match 'drawio_files/*' and '*.drawio'."
+                      fi
+                  done < "${TEMP_DIFF_OUTPUT_FILE}"
+                  echo "Finished loop over diff output. Total iterations: $LOOP_ITERATIONS."
+              fi
+              rm -f "${TEMP_DIFF_OUTPUT_FILE}"
+            else
+              # Logic for push to new branch or initial commit
+              # ...rest of logic
+            fi
+          else
+            # Not a push event (e.g., workflow_dispatch)
+            # ...rest of logic
+          fi
+
+      # Step 3: Convert Draw.io files to HTML and SVG
+      - name: Convert Draw.io files to HTML and SVG
+        run: |
+          echo "============================================"
+          echo "CONVERTING DRAW.IO FILES TO HTML AND SVG"
+          echo "============================================"
+
+          # Ensure output directories exist
+          mkdir -p svg_files html_files
+
+          # Create a simple converter script
+          cat > /tmp/convert-drawio.sh << 'EOL'
+#!/bin/bash
+input_file=$1
+output_file=$2
+echo "Converting: $input_file to $output_file"
+
+# Try direct command first
+if drawio -x -f svg -o "$output_file" "$input_file"; then
+  exit 0
+fi
+
+# Try with xvfb-run as fallback
+xvfb-run --auto-servernum --server-args="-screen 0 1280x1024x24" drawio -x -f svg -o "$output_file" "$input_file"
+EOL
+          chmod +x /tmp/convert-drawio.sh
+
+          # Track processed files
+          > /tmp/processed_files.txt
+          > /tmp/failed_files.txt
+
+          # Only process .drawio files with an ID in the filename that were added or modified in the last commit
+          echo "Detecting changed ID'd .drawio files in the last commit..."
+          # Get list of added or modified .drawio files with an ID in the filename
+          git diff --name-only --diff-filter=AM HEAD^ HEAD -- 'drawio_files/* ([0-9][0-9][0-9]).drawio' | sort > /tmp/changed_files.txt
+
+          # Fallback for initial commit (no HEAD^)
+          if [ ! -s /tmp/changed_files.txt ]; then
+            git diff-tree --no-commit-id --name-only -r HEAD -- 'drawio_files/* ([0-9][0-9][0-9]).drawio' | sort > /tmp/changed_files.txt
+          fi
+
+          # Process each changed file
+          while IFS= read -r file || [ -n "$file" ]; do
+            if [ -f "$file" ]; then
+              echo "Processing: $file"
+
+              # Create output directories
+              mkdir -p svg_files html_files
+
+              # Get base name
+              base=$(basename "$file" .drawio)
+              output_svg="svg_files/${base}.svg"
+              output_html="html_files/${base}.html"
+
+              # Convert to SVG (robust quoting)
+              echo "Converting to SVG..."
+              if /tmp/convert-drawio.sh "$file" "$output_svg"; then
+                echo "✅ Successfully converted to SVG: $output_svg"
+              else
+                echo "❌ Failed to convert: $file"
+                echo "$file" >> /tmp/failed_files.txt
+                # Create a placeholder SVG for failed conversions
+                echo '<svg xmlns="http://www.w3.org/2000/svg" width="640" height="480" viewBox="0 0 640 480">' > "$output_svg"
+                echo '  <rect width="100%" height="100%" fill="#ffffcc"/>' >> "$output_svg"
+                echo '  <text x="10" y="20" font-family="Arial" font-size="16">Error: Failed to convert diagram</text>' >> "$output_svg"
+                echo '  <text x="10" y="45" font-family="Arial" font-size="12">Please check the file and try again</text>' >> "$output_svg"
+                echo '</svg>' >> "$output_svg"
+              fi
+
+              # Process the rest of your file conversion logic
+              # ...
+
+              # Add to processed files list
+              echo "$file" >> /tmp/processed_files.txt
+            else
+              echo "File not found: $file"
+            fi
+          done < /tmp/changed_files.txt
+
+          # Rest of your conversion code
+          # ...
