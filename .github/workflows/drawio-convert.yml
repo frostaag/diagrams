@@ -361,6 +361,15 @@ jobs:
           # Ensure output directories exist
           mkdir -p svg_files html_files
 
+          # Initialize CHANGELOG.csv with headers if it doesn't exist
+          if [ ! -f "html_files/CHANGELOG.csv" ]; then
+            echo "Date,Time,Diagram,File,Action,Commit Message,Version,Commit Hash" > html_files/CHANGELOG.csv
+            echo "Initialized CHANGELOG.csv with headers"
+          else
+            echo "CHANGELOG.csv already exists, current content:"
+            head -n 5 html_files/CHANGELOG.csv || echo "Failed to read CHANGELOG.csv"
+          fi
+
           # Create a simple converter script using write-line approach
           echo "#!/bin/bash" > /tmp/convert-drawio.sh
           echo "input_file=\$1" >> /tmp/convert-drawio.sh
@@ -497,7 +506,15 @@ jobs:
                   new_version="$major.$minor"
                 fi
 
-                echo "$(date +"%d.%m.%Y"),$(date +"%H:%M:%S"),\"$base\",\"$file\",\"\",\"$commit_msg\",$new_version,\"$commit_hash\"" >> html_files/CHANGELOG.csv
+                # Add entry to changelog with proper format matching headers
+                CHANGELOG_ENTRY="$(date +"%d.%m.%Y"),$(date +"%H:%M:%S"),\"$base\",\"$file\",\"Converted\",\"$commit_msg\",\"$new_version\",\"$commit_hash\""
+                echo "Adding changelog entry: $CHANGELOG_ENTRY"
+                echo "$CHANGELOG_ENTRY" >> html_files/CHANGELOG.csv
+                
+                # Verify entry was added
+                echo "Last 5 entries in CHANGELOG.csv:"
+                tail -n 5 html_files/CHANGELOG.csv
+                
                 echo "$file" >> /tmp/processed_files.txt
               else
                 echo "❌ SVG output missing for $file, skipping HTML wrapper."
@@ -522,8 +539,11 @@ jobs:
           echo "Fetching latest changes from remote repository..."
           git fetch origin
           
-          # Add our changes
-          git add svg_files html_files
+          # Add our changes - explicitly include CHANGELOG.csv
+          git add svg_files html_files html_files/CHANGELOG.csv
+          
+          echo "Files staged for commit:"
+          git diff --name-only --cached
           
           # Only commit if there are changes
           if git diff --staged --quiet; then
@@ -553,10 +573,30 @@ jobs:
             # Auto-resolve CHANGELOG.csv
             if git status | grep -q "CHANGELOG.csv"; then
               echo "Resolving conflict in CHANGELOG.csv..."
-              git show :2:html_files/CHANGELOG.csv > /tmp/ours_changelog.csv
-              git show :3:html_files/CHANGELOG.csv > /tmp/theirs_changelog.csv
-              head -n 1 /tmp/ours_changelog.csv > /tmp/merged_changelog.csv
-              (tail -n +2 /tmp/ours_changelog.csv && tail -n +2 /tmp/theirs_changelog.csv) | sort | uniq >> /tmp/merged_changelog.csv
+              
+              # Get both versions
+              git show :2:html_files/CHANGELOG.csv > /tmp/ours_changelog.csv || echo "Failed to get our version of CHANGELOG.csv"
+              git show :3:html_files/CHANGELOG.csv > /tmp/theirs_changelog.csv || echo "Failed to get their version of CHANGELOG.csv"
+              
+              echo "Our CHANGELOG.csv entries count: $(wc -l < /tmp/ours_changelog.csv || echo "error")"
+              echo "Their CHANGELOG.csv entries count: $(wc -l < /tmp/theirs_changelog.csv || echo "error")"
+              
+              # Preserve header from our version if possible
+              if [ -s "/tmp/ours_changelog.csv" ]; then
+                head -n 1 /tmp/ours_changelog.csv > /tmp/merged_changelog.csv
+              elif [ -s "/tmp/theirs_changelog.csv" ]; then
+                head -n 1 /tmp/theirs_changelog.csv > /tmp/merged_changelog.csv
+              else
+                echo "Date,Time,Diagram,File,Action,Commit Message,Version,Commit Hash" > /tmp/merged_changelog.csv
+                echo "Had to recreate CHANGELOG.csv header"
+              fi
+              
+              # Merge all entries, removing duplicates
+              (tail -n +2 /tmp/ours_changelog.csv 2>/dev/null; tail -n +2 /tmp/theirs_changelog.csv 2>/dev/null) | sort | uniq >> /tmp/merged_changelog.csv
+              
+              echo "Merged CHANGELOG.csv entries count: $(wc -l < /tmp/merged_changelog.csv || echo "error")"
+              
+              # Update file and stage changes
               cp /tmp/merged_changelog.csv html_files/CHANGELOG.csv
               git add html_files/CHANGELOG.csv
               echo "CHANGELOG.csv conflict resolved automatically."
@@ -673,22 +713,22 @@ jobs:
                       extractedCols.push('');
                     }
                     
-                    // For reference, original columns are:
-                    // [0]Date, [1]Time, [2]User, [3]Diagram, [4]Action, [5]File, [6]Commit Message, [7]Version, [8]Commit Hash
+                    // For reference, expected columns are:
+                    // [0]Date, [1]Time, [2]Diagram, [3]File, [4]Action, [5]Commit Message, [6]Version, [7]Commit Hash
                     
-                    // Keeping same format, just removing the SharePoint Upload Date:
-                    // [0]Date, [1]Time, [2]Diagram, [3]Action, [4]File, [5]Commit Message, [6]Version, [7]Commit Hash
+                    console.log(`Processing row: ${row}`);
+                    console.log(`Extracted columns: ${JSON.stringify(extractedCols)}`);
                     
                     // Create a properly formatted CSV row with quotes around each field
                     const formattedRow = [
                       extractedCols[0],                      // Date
                       extractedCols[1],                      // Time
-                      `"${(extractedCols[3] || '').replace(/"/g, '""')}"`,  // Diagram
+                      `"${(extractedCols[2] || '').replace(/"/g, '""')}"`,  // Diagram
+                      `"${(extractedCols[3] || '').replace(/"/g, '""')}"`,  // File
                       `"${(extractedCols[4] || '').replace(/"/g, '""')}"`,  // Action
-                      `"${(extractedCols[5] || '').replace(/"/g, '""')}"`,  // File
-                      `"${(extractedCols[6] || '').replace(/"/g, '""')}"`,  // Commit Message
-                      extractedCols[7] || '',                // Version
-                      extractedCols[8] || ''                 // Commit Hash
+                      `"${(extractedCols[5] || '').replace(/"/g, '""')}"`,  // Commit Message
+                      extractedCols[6] || '',                // Version
+                      extractedCols[7] || ''                 // Commit Hash
                     ].join(',');
                     
                     fileContent += formattedRow + '\n';
