@@ -361,19 +361,19 @@ jobs:
           # Ensure output directories exist
           mkdir -p svg_files html_files
 
-          # Create a simple converter script
-          echo '#!/bin/bash
-input_file=$1
-output_file=$2
-echo "Converting: $input_file to $output_file"
-
-# Try direct command first
-if drawio -x -f svg -o "$output_file" "$input_file"; then
-  exit 0
-fi
-
-# Try with xvfb-run as fallback
-xvfb-run --auto-servernum --server-args="-screen 0 1280x1024x24" drawio -x -f svg -o "$output_file" "$input_file"' > /tmp/convert-drawio.sh
+          # Create a simple converter script using write-line approach
+          echo "#!/bin/bash" > /tmp/convert-drawio.sh
+          echo "input_file=\$1" >> /tmp/convert-drawio.sh
+          echo "output_file=\$2" >> /tmp/convert-drawio.sh
+          echo "echo \"Converting: \$input_file to \$output_file\"" >> /tmp/convert-drawio.sh
+          echo "" >> /tmp/convert-drawio.sh
+          echo "# Try direct command first" >> /tmp/convert-drawio.sh
+          echo "if drawio -x -f svg -o \"\$output_file\" \"\$input_file\"; then" >> /tmp/convert-drawio.sh
+          echo "  exit 0" >> /tmp/convert-drawio.sh
+          echo "fi" >> /tmp/convert-drawio.sh
+          echo "" >> /tmp/convert-drawio.sh
+          echo "# Try with xvfb-run as fallback" >> /tmp/convert-drawio.sh
+          echo "xvfb-run --auto-servernum --server-args=\"-screen 0 1280x1024x24\" drawio -x -f svg -o \"\$output_file\" \"\$input_file\"" >> /tmp/convert-drawio.sh
           chmod +x /tmp/convert-drawio.sh
 
           # Track processed files
