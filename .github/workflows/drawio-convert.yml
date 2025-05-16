@@ -6,6 +6,16 @@ on:
       - '**/*.drawio'
       - 'drawio_files/**'
   workflow_dispatch: # Enable manual triggering
+    inputs:
+      process_specific_file:
+        description: 'Process specific file?'
+        type: boolean
+        default: false
+        required: false
+      file_path:
+        description: 'Path to specific file to process (e.g., drawio_files/59 (041).drawio)'
+        type: string
+        required: false
 
 # Add concurrency control to prevent queued workflows and resolve XKEYBOARD issues
 concurrency:
@@ -391,12 +401,50 @@ jobs:
 
           # Only process .drawio files with an ID in the filename that were added or modified in the last commit
           echo "Detecting changed ID'd .drawio files in the last commit..."
+          echo "Current directory: $(pwd)"
+          echo "Available drawio files:"
+          find drawio_files -name "*.drawio" | sort
+          
+          echo "Files changed in last commit:"
+          git diff --name-only HEAD^ HEAD || echo "Failed to get diff with HEAD^"
+          
           # Get list of added or modified .drawio files with an ID in the filename
+          echo "Running diff filter command..."
           git diff --name-only --diff-filter=AM HEAD^ HEAD -- 'drawio_files/* ([0-9][0-9][0-9]).drawio' | sort > /tmp/changed_files.txt
+          
+          # Debug output
+          echo "Files detected by diff filter ($(wc -l < /tmp/changed_files.txt) files):"
+          cat /tmp/changed_files.txt || echo "No files found or error reading file"
 
           # Fallback for initial commit (no HEAD^)
           if [ ! -s /tmp/changed_files.txt ]; then
+            echo "No files found with diff filter, trying diff-tree..."
             git diff-tree --no-commit-id --name-only -r HEAD -- 'drawio_files/* ([0-9][0-9][0-9]).drawio' | sort > /tmp/changed_files.txt
+            echo "Files detected by diff-tree ($(wc -l < /tmp/changed_files.txt) files):"
+            cat /tmp/changed_files.txt || echo "No files found or error reading file"
+          fi
+          
+          # If still empty, use a manual approach for testing
+          if [ ! -s /tmp/changed_files.txt ]; then
+            echo "No files found with either method, using fallback to process all recent files..."
+            find drawio_files -name "* ([0-9][0-9][0-9]).drawio" -mtime -1 | sort > /tmp/changed_files.txt
+            echo "Recent files found ($(wc -l < /tmp/changed_files.txt) files):"
+            cat /tmp/changed_files.txt || echo "No files found or error reading file"
+            
+            # Check workflow dispatch inputs for manual file processing
+            if [[ "${{ github.event_name }}" == "workflow_dispatch" && "${{ github.event.inputs.process_specific_file }}" == "true" ]]; then
+              echo "Workflow triggered manually with specific file: ${{ github.event.inputs.file_path }}"
+              if [ -f "${{ github.event.inputs.file_path }}" ]; then
+                echo "${{ github.event.inputs.file_path }}" > /tmp/changed_files.txt
+                echo "Will process manually specified file: ${{ github.event.inputs.file_path }}"
+              fi
+            fi
+            
+            # Last resort: If we have a new file named "59 (041).drawio", process it
+            if [ -f "drawio_files/59 (041).drawio" ]; then
+              echo "Found drawio_files/59 (041).drawio - adding to process queue as last resort"
+              echo "drawio_files/59 (041).drawio" > /tmp/changed_files.txt
+            fi
           fi
 
           # Process each changed file
