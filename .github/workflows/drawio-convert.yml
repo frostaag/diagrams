@@ -362,8 +362,7 @@ jobs:
           mkdir -p svg_files html_files
 
           # Create a simple converter script
-          cat > /tmp/convert-drawio.sh << 'EOF'
-#!/bin/bash
+          echo '#!/bin/bash
 input_file=$1
 output_file=$2
 echo "Converting: $input_file to $output_file"
@@ -374,8 +373,7 @@ if drawio -x -f svg -o "$output_file" "$input_file"; then
 fi
 
 # Try with xvfb-run as fallback
-xvfb-run --auto-servernum --server-args="-screen 0 1280x1024x24" drawio -x -f svg -o "$output_file" "$input_file"
-EOF
+xvfb-run --auto-servernum --server-args="-screen 0 1280x1024x24" drawio -x -f svg -o "$output_file" "$input_file"' > /tmp/convert-drawio.sh
           chmod +x /tmp/convert-drawio.sh
 
           # Track processed files
