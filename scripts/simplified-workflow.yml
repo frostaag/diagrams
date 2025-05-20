@@ -1,0 +1,512 @@
+name: Convert Draw.io Files (Simplified)
+
+# Trigger workflow on drawio file changes or manual trigger
+on:
+  push:
+    paths:
+      - '**/*.drawio'
+      - 'drawio_files/**'
+  workflow_dispatch:
+    inputs:
+      process_specific_file:
+        description: 'Process specific file?'
+        type: boolean
+        default: false
+        required: false
+      file_path:
+        description: 'Path to specific file to process (e.g., drawio_files/70.drawio)'
+        type: string
+        required: false
+
+# Concurrency control to prevent conflicts
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+# Permissions needed for the workflow
+permissions:
+  contents: write
+
+jobs:
+  convert:
+    runs-on: ubuntu-latest
+    steps:
+      # Step 1: Check out the repository with history
+      - name: Check out the repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0 # Fetch all history to properly identify changed files
+      
+      # Step 2: Install dependencies
+      - name: Install dependencies
+        run: |
+          echo "Installing Draw.io and dependencies..."
+          sudo apt-get update
+          sudo apt-get install -y wget xvfb libasound2t64 libgbm1 libnspr4 libnss3 libxss1
+          
+          # Download and install drawio-desktop
+          DRAWIO_VERSION_TAG="v26.2.2"
+          DRAWIO_VERSION_FILE="26.2.2"
+          DRAWIO_DEB_URL="https://github.com/jgraph/drawio-desktop/releases/download/${DRAWIO_VERSION_TAG}/drawio-amd64-${DRAWIO_VERSION_FILE}.deb"
+          wget -O drawio-desktop.deb "${DRAWIO_DEB_URL}"
+          sudo apt-get install -y ./drawio-desktop.deb
+
+      # Step 3: Convert Draw.io files to HTML and SVG
+      - name: Convert Draw.io files to HTML and SVG
+        run: |
+          # Set up Git user
+          git config --local user.name "github-actions[bot]"
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # Ensure output directories exist
+          mkdir -p svg_files html_files
+          
+          # Initialize CHANGELOG.csv with headers if it doesn't exist
+          if [ ! -f "html_files/CHANGELOG.csv" ]; then
+            echo "Date,Time,Diagram,File,Action,Commit Message,Version,Commit Hash" > html_files/CHANGELOG.csv
+            echo "Initialized CHANGELOG.csv with headers"
+          fi
+          
+          # Create converter script
+          echo "#!/bin/bash
+          input_file=\$1
+          output_file=\$2
+          echo \"Converting: \$input_file to \$output_file\"
+          
+          # Try direct command first
+          if drawio -x -f svg -o \"\$output_file\" \"\$input_file\"; then
+            exit 0
+          fi
+          
+          # Try with xvfb-run as fallback
+          xvfb-run --auto-servernum --server-args=\"-screen 0 1280x1024x24\" drawio -x -f svg -o \"\$output_file\" \"\$input_file\"
+          " > /tmp/convert-drawio.sh
+          chmod +x /tmp/convert-drawio.sh
+          
+          # Create files to track processing
+          > /tmp/processed_files.txt
+          > /tmp/failed_files.txt
+          
+          # SIMPLIFIED FILE DETECTION LOGIC
+          # --------------------------------
+          # Step 1: Check for files specified through workflow_dispatch
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" && "${{ github.event.inputs.process_specific_file }}" == "true" ]]; then
+            echo "Manual workflow trigger with specific file: ${{ github.event.inputs.file_path }}"
+            if [ -f "${{ github.event.inputs.file_path }}" ]; then
+              echo "${{ github.event.inputs.file_path }}" > /tmp/changed_files.txt
+            else
+              echo "ERROR: Specified file not found: ${{ github.event.inputs.file_path }}"
+              exit 1
+            fi
+          else
+            # Step 2: Check for changes in the latest commit
+            echo "Getting changed .drawio files from latest commit..."
+            git diff --name-only --diff-filter=AM HEAD^ HEAD -- 'drawio_files/*.drawio' > /tmp/changed_files.txt
+            
+            # Step 3: If nothing found, try diff-tree (useful for initial commits)
+            if [ ! -s /tmp/changed_files.txt ]; then
+              echo "No files from diff, trying diff-tree..."
+              git diff-tree --no-commit-id --name-only -r HEAD -- 'drawio_files/*.drawio' > /tmp/changed_files.txt
+            fi
+            
+            # Step 4: If still nothing, check for recently modified files
+            if [ ! -s /tmp/changed_files.txt ]; then
+              echo "No files from git history, checking for recent files..."
+              find drawio_files -name "*.drawio" -mtime -1 | sort > /tmp/changed_files.txt
+            fi
+            
+            # Step 5: Last resort - check for specific test files
+            if [ ! -s /tmp/changed_files.txt ]; then
+              echo "No recent files, checking for specific test files..."
+              for test_file in "drawio_files/70.drawio" "drawio_files/59 (041).drawio"; do
+                if [ -f "$test_file" ]; then
+                  echo "$test_file" >> /tmp/changed_files.txt
+                  echo "Found test file: $test_file"
+                fi
+              done
+            fi
+            
+            # Step 6: If absolutely nothing found, try the most recently modified file
+            if [ ! -s /tmp/changed_files.txt ]; then
+              echo "No files found, using last modified .drawio file as fallback..."
+              find drawio_files -name "*.drawio" -type f -printf '%T@ %p\n' | 
+                sort -n | tail -1 | cut -f2- -d" " > /tmp/changed_files.txt
+            fi
+          fi
+          
+          # List files to process
+          echo "Files to process ($(wc -l < /tmp/changed_files.txt) files):"
+          cat /tmp/changed_files.txt || echo "No files found to process"
+          
+          # PROCESS EACH FILE
+          # ----------------
+          while IFS= read -r file || [ -n "$file" ]; do
+            if [ -f "$file" ]; then
+              echo "Processing: $file"
+              
+              # Get base name
+              base=$(basename "$file" .drawio)
+              output_svg="svg_files/${base}.svg"
+              output_html="html_files/${base}.html"
+              
+              # Convert to SVG
+              echo "Converting to SVG..."
+              if /tmp/convert-drawio.sh "$file" "$output_svg"; then
+                echo "✅ Successfully converted to SVG: $output_svg"
+              else
+                echo "❌ Failed to convert: $file"
+                echo "$file" >> /tmp/failed_files.txt
+                # Create placeholder SVG for failures
+                echo '<svg xmlns="http://www.w3.org/2000/svg" width="640" height="480" viewBox="0 0 640 480">
+                  <rect width="100%" height="100%" fill="#ffffcc"/>
+                  <text x="10" y="20" font-family="Arial" font-size="16">Error: Failed to convert diagram</text>
+                  <text x="10" y="45" font-family="Arial" font-size="12">Please check the file and try again</text>
+                </svg>' > "$output_svg"
+              fi
+              
+              # Create HTML wrapper if SVG exists
+              if [ -f "$output_svg" ]; then
+                echo "Creating HTML wrapper..."
+                echo '<!DOCTYPE html>
+                <html lang="en">
+                <head>
+                  <meta charset="UTF-8">
+                  <title>'$base'</title>
+                  <style>body { margin: 0; padding: 0; } svg { max-width: 100%; height: auto; display: block; }</style>
+                </head>
+                <body>' > "$output_html"
+                cat "$output_svg" >> "$output_html"
+                echo '</body>
+                </html>' >> "$output_html"
+                
+                # Get commit info for changelog
+                log_lines=$(git log --follow --find-renames=40% --format="%s|%h|%an|%ae|%cI" -- "$file" | head -n 10)
+                commit_msg=""
+                commit_hash=""
+                
+                # Find first non-Chore commit
+                while IFS= read -r line; do
+                  msg="${line%%|*}"
+                  rest="${line#*|}"
+                  hash="${rest%%|*}"
+                  
+                  if [[ "$msg" != "Chore: "* ]]; then
+                    commit_msg="$msg"
+                    commit_hash="$hash"
+                    break
+                  fi
+                done <<< "$log_lines"
+                
+                # If all commits are Chore, use the first one
+                if [ -z "$commit_msg" ] && [ -n "$log_lines" ]; then
+                  commit_msg="${log_lines%%|*}"
+                  commit_hash="$(echo "$log_lines" | cut -d'|' -f2)"
+                fi
+                
+                # Default if no commits found
+                if [ -z "$commit_msg" ]; then
+                  commit_msg="New diagram"
+                  commit_hash="$(git rev-parse --short HEAD)"
+                fi
+                
+                # Determine versioning
+                changelog_file="html_files/CHANGELOG.csv"
+                last_version=""
+                if [ -f "$changelog_file" ]; then
+                  last_version=$(awk -F',' -v f="$file" 'tolower($4)==tolower(f){print $(NF-1)}' "$changelog_file" | tail -n 1)
+                fi
+                
+                # Calculate new version
+                if [[ -z "$last_version" || ! "$last_version" =~ ^[0-9]+\.[0-9]+$ ]]; then
+                  new_version="1.0"
+                else
+                  major=${last_version%%.*}
+                  minor=${last_version##*.}
+                  if echo "$commit_msg" | grep -Eiq '(major|redesign|breaking|release)'; then
+                    major=$((major+1))
+                    minor=0
+                  else
+                    minor=$((minor+1))
+                  fi
+                  new_version="$major.$minor"
+                fi
+                
+                # Add changelog entry
+                CHANGELOG_ENTRY="$(date +"%d.%m.%Y"),$(date +"%H:%M:%S"),\"$base\",\"$file\",\"Converted\",\"$commit_msg\",\"$new_version\",\"$commit_hash\""
+                echo "Adding changelog entry: $CHANGELOG_ENTRY"
+                echo "$CHANGELOG_ENTRY" >> html_files/CHANGELOG.csv
+                
+                echo "$file" >> /tmp/processed_files.txt
+              else
+                echo "❌ SVG output missing for $file, skipping HTML wrapper."
+              fi
+            else
+              echo "⚠️ File not found: $file"
+            fi
+          done < /tmp/changed_files.txt
+          
+          echo "Process completed."
+          echo "Successful conversions: $(wc -l < /tmp/processed_files.txt)"
+          echo "Failed conversions: $(wc -l < /tmp/failed_files.txt)"
+      
+      # Step 4: Commit and push changes
+      - name: Commit and push changes
+        id: commit_changes
+        run: |
+          git config --local user.name "github-actions[bot]"
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # Add our changes
+          git add svg_files/ html_files/ html_files/CHANGELOG.csv
+          
+          # Only commit if there are changes
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+            echo "changes_made=false" >> $GITHUB_OUTPUT
+          else
+            echo "Committing changes..."
+            git commit -m "Auto-converted draw.io files"
+            
+            # Pull latest changes before pushing to avoid conflicts
+            git pull --rebase origin ${GITHUB_REF#refs/heads/}
+            
+            # Push changes
+            git push "https://${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" HEAD:${GITHUB_REF#refs/heads/}
+            echo "changes_made=true" >> $GITHUB_OUTPUT
+          fi
+      
+      # Step 5: Upload changelog to SharePoint
+      - name: Upload changelog to SharePoint
+        if: steps.commit_changes.outputs.changes_made == 'true'
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+            
+            try {
+              const https = require('https');
+              console.log('Preparing to upload changelog to SharePoint...');
+              
+              // Read the changelog file
+              const changelogPath = path.join(process.env.GITHUB_WORKSPACE, 'html_files', 'CHANGELOG.csv');
+              console.log(`Reading changelog from: ${changelogPath}`);
+              const rawContent = fs.readFileSync(changelogPath, 'utf8');
+              
+              // Parse and format the CSV
+              const lines = rawContent.split('\n').filter(line => line.trim());
+              const header = lines[0];
+              const dataRows = lines.slice(1);
+              
+              // Create formatted CSV
+              let fileContent = 'Date,Time,Diagram,Action,File,Commit Message,Version,Commit Hash\n';
+              
+              // Process each row
+              dataRows.forEach(row => {
+                if (row.trim()) {
+                  try {
+                    // Parse CSV properly with regex to handle quoted fields with commas
+                    const parseCSV = (text) => {
+                      const result = [];
+                      const regex = /("[^"]*"|[^,"\r\n]+)(?=,|\r\n|$)|^(?=,|$)|,(?=,|$)/g;
+                      let m;
+                      
+                      while ((m = regex.exec(text)) !== null) {
+                        // Remove quotes if the field is quoted
+                        let field = m[1] || '';
+                        if (field.startsWith('"') && field.endsWith('"')) {
+                          field = field.substring(1, field.length - 1);
+                        }
+                        result.push(field);
+                      }
+                      
+                      return result;
+                    };
+                    
+                    const cols = parseCSV(row);
+                    
+                    // Ensure enough columns
+                    while (cols.length < 8) {
+                      cols.push('');
+                    }
+                    
+                    // Format row with proper column order
+                    const formattedRow = [
+                      cols[0],                             // Date
+                      cols[1],                             // Time
+                      `"${(cols[2] || '').replace(/"/g, '""')}"`,  // Diagram
+                      `"${(cols[4] || '').replace(/"/g, '""')}"`,  // Action
+                      `"${(cols[3] || '').replace(/"/g, '""')}"`,  // File
+                      `"${(cols[5] || '').replace(/"/g, '""')}"`,  // Commit Message
+                      cols[6] || '',                       // Version
+                      cols[7] || ''                        // Commit Hash
+                    ].join(',');
+                    
+                    fileContent += formattedRow + '\n';
+                  } catch (error) {
+                    console.error(`Error processing CSV row: ${row}`, error);
+                  }
+                }
+              });
+              
+              console.log(`Formatted changelog with ${dataRows.length} entries`);
+              
+              // Helper function for HTTP requests
+              const httpRequest = (options, postData) => {
+                return new Promise((resolve, reject) => {
+                  const req = https.request(options, (res) => {
+                    let data = '';
+                    res.on('data', chunk => data += chunk);
+                    res.on('end', () => {
+                      if (res.statusCode >= 200 && res.statusCode < 300) {
+                        try {
+                          resolve(data.length > 0 ? JSON.parse(data) : {});
+                        } catch (e) {
+                          resolve(data); // Not JSON, return as string
+                        }
+                      } else {
+                        reject(new Error(`HTTP Error: ${res.statusCode} ${data}`));
+                      }
+                    });
+                  });
+                  
+                  req.on('error', reject);
+                  if (postData) req.write(postData);
+                  req.end();
+                });
+              };
+              
+              // Get access token
+              const tokenBody = new URLSearchParams({
+                client_id: process.env.CLIENT_ID,
+                scope: 'https://graph.microsoft.com/.default',
+                client_secret: process.env.CLIENT_SECRET,
+                grant_type: 'client_credentials'
+              }).toString();
+              
+              const tokenOptions = {
+                method: 'POST',
+                hostname: 'login.microsoftonline.com',
+                path: `/${process.env.TENANT_ID}/oauth2/v2.0/token`,
+                headers: {
+                  'Content-Type': 'application/x-www-form-urlencoded',
+                  'Content-Length': Buffer.byteLength(tokenBody)
+                }
+              };
+              
+              // Get token
+              const tokenData = await httpRequest(tokenOptions, tokenBody);
+              console.log('Access token obtained');
+              
+              // Get site info
+              const siteOptions = {
+                method: 'GET',
+                hostname: 'graph.microsoft.com',
+                path: `/v1.0/sites/${process.env.SITE_ID}`,
+                headers: {
+                  'Authorization': `Bearer ${tokenData.access_token}`,
+                  'Accept': 'application/json'
+                }
+              };
+              
+              try {
+                const siteData = await httpRequest(siteOptions);
+                console.log(`Site found: ${siteData.displayName || siteData.name}`);
+              } catch (e) {
+                console.log('Site not found with provided ID, trying alternative format');
+                // Try alternative format if needed
+              }
+              
+              // Get drives list
+              const drivesOptions = {
+                method: 'GET',
+                hostname: 'graph.microsoft.com',
+                path: `/v1.0/sites/${process.env.SITE_ID}/drives`,
+                headers: {
+                  'Authorization': `Bearer ${tokenData.access_token}`,
+                  'Accept': 'application/json'
+                }
+              };
+              
+              const drivesData = await httpRequest(drivesOptions);
+              
+              if (!drivesData.value || drivesData.value.length === 0) {
+                throw new Error('No drives found');
+              }
+              
+              // Find Documents drive
+              const documentsDrive = drivesData.value.find(d => 
+                d.name === 'Shared Documents' || 
+                d.name === 'Documents' || 
+                d.name.includes('Document')
+              );
+              
+              const driveId = documentsDrive ? documentsDrive.id : drivesData.value[0].id;
+              
+              // Upload file
+              const fileName = 'Diagrams_Changelog.csv';
+              const folderPath = 'Diagrams';
+              
+              // Check if folder exists
+              try {
+                const folderCheckOptions = {
+                  method: 'GET',
+                  hostname: 'graph.microsoft.com',
+                  path: `/v1.0/sites/${process.env.SITE_ID}/drives/${driveId}/root:/${folderPath}`,
+                  headers: {
+                    'Authorization': `Bearer ${tokenData.access_token}`,
+                    'Accept': 'application/json'
+                  }
+                };
+                
+                try {
+                  await httpRequest(folderCheckOptions);
+                  console.log(`Folder "${folderPath}" exists`);
+                } catch (e) {
+                  // Create folder if doesn't exist
+                  console.log(`Creating folder "${folderPath}"...`);
+                  const createFolderOptions = {
+                    method: 'PATCH',
+                    hostname: 'graph.microsoft.com',
+                    path: `/v1.0/sites/${process.env.SITE_ID}/drives/${driveId}/root/children`,
+                    headers: {
+                      'Authorization': `Bearer ${tokenData.access_token}`,
+                      'Content-Type': 'application/json'
+                    }
+                  };
+                  
+                  await httpRequest(createFolderOptions, JSON.stringify({
+                    name: folderPath,
+                    folder: {},
+                    '@microsoft.graph.conflictBehavior': 'rename'
+                  }));
+                }
+              } catch (e) {
+                console.error('Error with folder operations:', e);
+              }
+              
+              // Upload the file
+              const uploadOptions = {
+                method: 'PUT',
+                hostname: 'graph.microsoft.com',
+                path: `/v1.0/sites/${process.env.SITE_ID}/drives/${driveId}/root:/${folderPath}/${fileName}:/content`,
+                headers: {
+                  'Authorization': `Bearer ${tokenData.access_token}`,
+                  'Content-Type': 'text/csv',
+                  'Content-Length': Buffer.byteLength(fileContent)
+                }
+              };
+              
+              const uploadData = await httpRequest(uploadOptions, fileContent);
+              console.log('Successfully uploaded changelog to SharePoint');
+              console.log(`File URL: ${uploadData.webUrl}`);
+              
+            } catch (error) {
+              console.error('Error uploading to SharePoint:', error.message);
+              // Don't fail the workflow if SharePoint upload fails
+            }
+        env:
+          TENANT_ID: ${{ secrets.TENANT_ID }}
+          CLIENT_ID: ${{ secrets.CLIENT_ID }}
+          CLIENT_SECRET: ${{ secrets.CLIENT_SECRET }}
+          SITE_ID: ${{ secrets.SITE_ID }}
